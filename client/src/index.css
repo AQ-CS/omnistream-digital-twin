@@ -1,0 +1,475 @@
+@import "tailwindcss";
+
+/* ═══════════════════════════════════════════════════════════════
+   ISA-101 Industrial HMI Design System
+   ═══════════════════════════════════════════════════════════════ */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+
+:root {
+  /* ─── Core Palette (ISA-101 Dark Slate) ─── */
+  --hmi-bg-deep: #0f172a;
+  --hmi-bg: #1e293b;
+  --hmi-bg-card: #1e293b;
+  --hmi-bg-elevated: #283548;
+  --hmi-border: #334155;
+  --hmi-border-subtle: #1e293b;
+
+  /* ─── Text ─── */
+  --hmi-text-primary: #f1f5f9;
+  --hmi-text-secondary: #94a3b8;
+  --hmi-text-muted: #64748b;
+  --hmi-text-dim: #475569;
+
+  /* ─── Accent (Nominal - Cool Blue) ─── */
+  --hmi-accent: #38bdf8;
+  --hmi-accent-dim: #0c4a6e;
+  --hmi-accent-glow: rgba(56, 189, 248, 0.15);
+
+  /* ─── Alarm Colors (ISA-101 Reserved) ─── */
+  --hmi-alarm-warning: #f59e0b;
+  --hmi-alarm-critical: #ef4444;
+  --hmi-alarm-bg: rgba(127, 29, 29, 0.6);
+
+  /* ─── Chart Colors (Monochromatic) ─── */
+  --hmi-chart-rpm: #38bdf8;
+  --hmi-chart-vib: #94a3b8;
+  --hmi-chart-temp: #818cf8;
+  --hmi-chart-grid: #1e293b;
+  --hmi-chart-axis: #475569;
+
+  /* ─── Spacing ─── */
+  --hmi-radius: 8px;
+  --hmi-radius-lg: 12px;
+}
+
+/* ─── Global Reset & Base ──────────────────────────────────── */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  background: var(--hmi-bg-deep);
+  color: var(--hmi-text-primary);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+  min-height: 100vh;
+}
+
+#root {
+  max-width: none;
+  margin: 0;
+  padding: 0;
+  text-align: left;
+}
+
+/* ─── Tabular Numeric Display ──────────────────────────────── */
+
+.tabular-data {
+  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+
+/* ─── Panel / Card System ──────────────────────────────────── */
+
+.hmi-panel {
+  background: var(--hmi-bg-card);
+  border: 1px solid var(--hmi-border);
+  border-radius: var(--hmi-radius-lg);
+  overflow: hidden;
+}
+
+.hmi-panel-header {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--hmi-border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.hmi-panel-title {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--hmi-text-muted);
+}
+
+.hmi-panel-body {
+  padding: 16px;
+}
+
+/* ─── Readout Card ─────────────────────────────────────────── */
+
+.readout-card {
+  background: var(--hmi-bg-card);
+  border: 1px solid var(--hmi-border);
+  border-radius: var(--hmi-radius-lg);
+  padding: 16px 20px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  position: relative;
+  overflow: hidden;
+  transition: border-color 0.3s ease;
+}
+
+.readout-card::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: var(--accent-color, var(--hmi-accent));
+  opacity: 0.6;
+}
+
+.readout-card:hover {
+  border-color: var(--hmi-text-dim);
+}
+
+.readout-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: var(--hmi-bg-deep);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.readout-icon svg {
+  width: 20px;
+  height: 20px;
+  color: var(--accent-color, var(--hmi-accent));
+}
+
+.readout-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.readout-label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--hmi-text-muted);
+  margin-bottom: 2px;
+}
+
+.readout-value-row {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.readout-value {
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 1.1;
+  color: var(--hmi-text-primary);
+}
+
+.readout-unit {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--hmi-text-dim);
+}
+
+/* ─── Chart Panel ──────────────────────────────────────────── */
+
+.chart-panel {
+  background: var(--hmi-bg-card);
+  border: 1px solid var(--hmi-border);
+  border-radius: var(--hmi-radius-lg);
+  overflow: hidden;
+}
+
+.chart-panel-header {
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--hmi-border);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.chart-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.chart-label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--hmi-text-muted);
+}
+
+.chart-body {
+  padding: 4px 8px 8px;
+  display: flex;
+  justify-content: center;
+}
+
+/* ─── uPlot Overrides ──────────────────────────────────────── */
+
+.uplot {
+  font-family: 'Inter', sans-serif !important;
+}
+
+.u-title {
+  display: none !important;
+}
+
+.u-legend {
+  display: none !important;
+}
+
+.u-wrap {
+  border-radius: 4px;
+}
+
+/* ─── Digital Twin Schematic ───────────────────────────────── */
+
+.twin-container {
+  background: var(--hmi-bg-card);
+  border: 1px solid var(--hmi-border);
+  border-radius: var(--hmi-radius-lg);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.twin-node {
+  border: 1.5px solid var(--hmi-border);
+  border-radius: var(--hmi-radius);
+  background: var(--hmi-bg-deep);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 8px;
+  transition: all 0.5s ease;
+  position: relative;
+}
+
+.twin-node-label {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--hmi-text-dim);
+  margin-bottom: 4px;
+}
+
+.twin-node-value {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--hmi-text-primary);
+  line-height: 1.2;
+}
+
+.twin-node-unit {
+  font-size: 9px;
+  color: var(--hmi-text-dim);
+  margin-top: 1px;
+}
+
+.twin-node-status {
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  margin-top: 4px;
+}
+
+.twin-connector {
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--hmi-border), transparent);
+  flex: 1;
+  min-width: 8px;
+}
+
+.twin-connector-vertical {
+  width: 2px;
+  height: 12px;
+  background: var(--hmi-border);
+}
+
+/* ─── Flow Arrow ───────────────────────────────────────────── */
+
+.flow-arrow {
+  color: var(--hmi-text-dim);
+  font-size: 14px;
+  padding: 0 2px;
+}
+
+/* ─── Warning Banner ───────────────────────────────────────── */
+
+.warning-banner {
+  background: var(--hmi-alarm-bg);
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  border-left: 4px solid var(--hmi-alarm-critical);
+  border-radius: var(--hmi-radius-lg);
+  padding: 16px 20px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  backdrop-filter: blur(8px);
+}
+
+/* ─── Header ───────────────────────────────────────────────── */
+
+.hmi-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 0;
+  border-bottom: 1px solid var(--hmi-border);
+}
+
+.hmi-btn {
+  background: var(--hmi-bg-elevated);
+  border: 1px solid var(--hmi-border);
+  color: var(--hmi-text-secondary);
+  font-family: 'Inter', sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  padding: 8px 16px;
+  border-radius: var(--hmi-radius);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  outline: none;
+}
+
+.hmi-btn:hover {
+  background: var(--hmi-border);
+  color: var(--hmi-text-primary);
+  border-color: var(--hmi-text-dim);
+}
+
+.hmi-btn:active {
+  transform: scale(0.98);
+}
+
+/* ─── Live Indicator ───────────────────────────────────────── */
+
+.live-indicator {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.live-dot {
+  position: relative;
+  width: 8px;
+  height: 8px;
+}
+
+.live-dot::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: var(--hmi-accent);
+  animation: live-pulse 2s ease-in-out infinite;
+}
+
+.live-dot::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: var(--hmi-accent);
+}
+
+@keyframes live-pulse {
+
+  0%,
+  100% {
+    opacity: 0;
+    transform: scale(1);
+  }
+
+  50% {
+    opacity: 0.6;
+    transform: scale(2.5);
+  }
+}
+
+.live-text {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--hmi-text-muted);
+}
+
+/* ─── Fault Pulse Animation ────────────────────────────────── */
+
+@keyframes fault-pulse {
+
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.fault-pulse {
+  animation: fault-pulse 1s ease-in-out infinite;
+}
+
+/* ─── Dashboard Grid ───────────────────────────────────────── */
+
+.dashboard-grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 1024px) {
+  .dashboard-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.charts-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.readouts-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+
+@media (max-width: 768px) {
+  .readouts-grid {
+    grid-template-columns: 1fr;
+  }
+}
