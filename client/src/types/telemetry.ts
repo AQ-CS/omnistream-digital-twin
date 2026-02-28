@@ -16,3 +16,6 @@ export interface PdMState {
 
 // Multi-Turbine State 
 export type FleetPdMState = Record<string, PdMState>;
+
+// WebSocket Supervisor States
+export type ConnectionStatus = 'CONNECTED' | 'RECONNECTING' | 'STALE' | 'DISCONNECTED';

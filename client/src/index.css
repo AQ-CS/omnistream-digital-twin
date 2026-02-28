@@ -390,6 +390,51 @@ body {
   padding: 16px;
 }
 
+/* ─── ISA-101 Alarm Textures ─────────────────────────────────── */
+
+/* Warning: Solid Dark Gold + Dashed Border */
+.hmi-alarm-warning-status {
+  background: #2d2001 !important;
+  border: 2px dashed var(--hmi-alarm-warning) !important;
+}
+
+/* Critical: Solid Deep Red + Double Border */
+.hmi-alarm-critical-status {
+  background: #2a0a0a !important;
+  border: 2px solid var(--hmi-alarm-critical) !important;
+  outline: 2px solid var(--hmi-alarm-critical);
+  outline-offset: 2px;
+  margin: 4px;
+}
+
+/* Nominal: Standard card appearance (explicit class) */
+.hmi-panel-nominal {
+  background: var(--hmi-bg-card);
+  border: 1px solid var(--hmi-border);
+}
+
+/* COMM_LOSS / STALE gray-out overlay */
+.hmi-comm-loss {
+  filter: saturate(0) brightness(0.7);
+  pointer-events: none;
+  position: relative;
+}
+
+.hmi-comm-loss::after {
+  content: 'COMM LOSS';
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: #475569;
+  background: rgba(15, 23, 42, 0.5);
+  border-radius: var(--hmi-radius-lg);
+}
+
 /* ─── Readout Card ─────────────────────────────────────────── */
 
 .readout-card {

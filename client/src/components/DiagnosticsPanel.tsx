@@ -1,15 +1,15 @@
-import type { TelemetryPayload, PdMState } from '../types/telemetry';
+import type { TelemetryPayload, PdMState, ConnectionStatus } from '../types/telemetry';
 
 interface DiagnosticsPanelProps {
     turbineId: string;
     payload?: TelemetryPayload;
     pdmState?: PdMState;
+    connStatus: ConnectionStatus;
 }
 
-export function DiagnosticsPanel({ turbineId, payload, pdmState }: DiagnosticsPanelProps) {
+export function DiagnosticsPanel({ turbineId, payload, pdmState, connStatus }: DiagnosticsPanelProps) {
     let statusColor = 'var(--hmi-border)';
-    let bgColor = 'var(--hmi-bg-card)';
-    let isWarningOrCritical = false;
+    let alarmLevel: 'nominal' | 'warning' | 'critical' = 'nominal';
 
     if (pdmState) {
         const isThermalCritical = pdmState.temperatureStatus === 'critical';
@@ -19,26 +19,37 @@ export function DiagnosticsPanel({ turbineId, payload, pdmState }: DiagnosticsPa
 
         if (isThermalCritical || isVibCritical) {
             statusColor = 'var(--hmi-alarm-critical)';
-            bgColor = 'var(--hmi-bg-card)';
-            isWarningOrCritical = true;
+            alarmLevel = 'critical';
         } else if (isThermalWarning || isVibWarning) {
             statusColor = 'var(--hmi-alarm-warning)';
-            bgColor = 'var(--hmi-bg-card)';
-            isWarningOrCritical = true;
+            alarmLevel = 'warning';
         }
     }
 
+    // Solid opaque backgrounds — no transparency bleeding
+    const panelBg = alarmLevel === 'critical' ? '#2a0a0a'
+        : alarmLevel === 'warning' ? '#2d2001'
+            : 'var(--hmi-bg-card)';
+
+    const isStale = connStatus === 'STALE' || connStatus === 'DISCONNECTED';
+
+    // Alarm class for physical cue (clip-path / outline)
+    const alarmClass = alarmLevel === 'critical'
+        ? 'hmi-alarm-critical-status'
+        : alarmLevel === 'warning'
+            ? 'hmi-alarm-warning-status'
+            : '';
+
     return (
-        <div className="hmi-panel" style={{
+        <div className={`hmi-panel ${alarmClass} ${isStale ? 'hmi-comm-loss' : ''}`} style={{
             flex: 1,
             display: 'flex',
             flexDirection: 'column',
-            border: isWarningOrCritical ? `1px solid ${statusColor}80` : '1px solid var(--hmi-border)',
             boxSizing: 'border-box',
-            backgroundColor: isWarningOrCritical ? `${statusColor}10` : 'var(--hmi-bg-card)',
+            backgroundColor: panelBg,
             transition: 'all 0.3s'
         }}>
-            <div className="hmi-panel-header" style={{ borderBottomColor: isWarningOrCritical ? `${statusColor}40` : 'var(--hmi-border)' }}>
+            <div className="hmi-panel-header" style={{ borderBottomColor: alarmLevel !== 'nominal' ? `${statusColor}40` : 'var(--hmi-border)' }}>
                 <span className="hmi-panel-title">Active Diagnostics</span>
                 <span className="tabular-data" style={{ fontSize: '11px', color: 'var(--hmi-text-dim)' }}>{turbineId} STATUS LOG</span>
             </div>
@@ -57,7 +68,7 @@ export function DiagnosticsPanel({ turbineId, payload, pdmState }: DiagnosticsPa
                             <>
                                 {pdmState.temperatureStatus !== 'nominal' && (
                                     <div style={{
-                                        background: 'rgba(239, 68, 68, 0.1)',
+                                        background: '#2a0a0a',
                                         borderLeft: `3px solid ${pdmState.temperatureStatus === 'critical' ? 'var(--hmi-alarm-critical)' : 'var(--hmi-alarm-warning)'}`,
                                         padding: '12px 16px',
                                         borderRadius: '4px',
@@ -81,7 +92,7 @@ export function DiagnosticsPanel({ turbineId, payload, pdmState }: DiagnosticsPa
 
                                 {pdmState.estimatedRUL < 60 && (
                                     <div style={{
-                                        background: 'rgba(239, 68, 68, 0.1)',
+                                        background: '#2a0a0a',
                                         borderLeft: `3px solid ${pdmState.estimatedRUL < 30 ? 'var(--hmi-alarm-critical)' : 'var(--hmi-alarm-warning)'}`,
                                         padding: '12px 16px',
                                         borderRadius: '4px',

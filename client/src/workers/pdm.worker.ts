@@ -1,5 +1,6 @@
 // ─── PdM Web Worker ──────────────────────────────────────────
 // Runs EMA, Linear Regression, and RUL off the main thread for all turbines.
+// Uses pre-allocated Float64Array circular buffers — zero dynamic allocations on the 50Hz hot path.
 
 import type { FleetPdMState, PdMState } from '../types/telemetry';
 
@@ -21,20 +22,33 @@ function calculateEMA(current: number, previous: number | null, alpha: number): 
     return (current * alpha) + (previous * (1 - alpha));
 }
 
-function calculateLinearRegression(data: [number, number][]): number {
-    const n = data.length;
-    if (n < 2) return 0;
+/**
+ * Linear regression on a Float64Array circular buffer.
+ * Iterates using (start + i) % capacity to avoid creating temporary arrays.
+ */
+function calculateLinearRegressionTyped(
+    xBuf: Float64Array,
+    yBuf: Float64Array,
+    head: number,
+    count: number,
+    capacity: number
+): number {
+    if (count < 2) return 0;
 
     let sumX = 0, sumY = 0, sumXY = 0, sumX2 = 0;
-    for (let i = 0; i < n; i++) {
-        const x = data[i][0];
-        const y = data[i][1];
+    const start = (head - count + capacity) % capacity;
+
+    for (let i = 0; i < count; i++) {
+        const idx = (start + i) % capacity;
+        const x = xBuf[idx];
+        const y = yBuf[idx];
         sumX += x;
         sumY += y;
         sumXY += x * y;
         sumX2 += x * x;
     }
 
+    const n = count;
     const xMean = sumX / n;
     const yMean = sumY / n;
     const num = sumXY - (n * xMean * yMean);
@@ -58,11 +72,23 @@ function calculateRUL(current: number, slope: number, threshold: number): number
 // ─── Worker State ────────────────────────────────────────────
 
 const BUFFER_SIZE = 250; // 5 seconds at 50Hz
+const RAW_BUFFER_SIZE = 50; // 1-second rolling window for peak detection
 
-// Maintain an isolated state slice for every multiplexed turbine
+// Maintain an isolated state slice for every multiplexed turbine.
+// All buffers pre-allocated on instantiation — no dynamic allocations during the hot path.
 class TurbineState {
-    public rawBuffer: number[] = [];
-    public trendBuffer: [number, number][] = [];
+    // Raw vibration rolling window (1s = 50 samples)
+    public vibBuffer = new Float64Array(RAW_BUFFER_SIZE);
+    public vibHead = 0;
+    public vibCount = 0;
+
+    // Trend buffer for linear regression (5s = 250 samples)
+    public trendTsBuffer = new Float64Array(BUFFER_SIZE);
+    public trendEmaBuffer = new Float64Array(BUFFER_SIZE);
+    public trendHead = 0;
+    public trendCount = 0;
+
+    // EMA state
     public lastEMA: number | null = null;
 
     // Thermal Tracking
@@ -75,6 +101,34 @@ class TurbineState {
         smoothedTemperature: 0,
         temperatureStatus: 'nominal'
     };
+
+    /** Write a vibration sample into the circular raw buffer */
+    pushVib(value: number): void {
+        this.vibBuffer[this.vibHead % RAW_BUFFER_SIZE] = value;
+        this.vibHead++;
+        if (this.vibCount < RAW_BUFFER_SIZE) this.vibCount++;
+    }
+
+    /** Find peak absolute vibration in the raw buffer */
+    peakVib(): number {
+        let peak = 0;
+        const n = this.vibCount;
+        const start = (this.vibHead - n + RAW_BUFFER_SIZE) % RAW_BUFFER_SIZE;
+        for (let i = 0; i < n; i++) {
+            const v = Math.abs(this.vibBuffer[(start + i) % RAW_BUFFER_SIZE]);
+            if (v > peak) peak = v;
+        }
+        return peak;
+    }
+
+    /** Write a trend sample (timestamp + EMA) into the circular trend buffer */
+    pushTrend(ts: number, ema: number): void {
+        const idx = this.trendHead % BUFFER_SIZE;
+        this.trendTsBuffer[idx] = ts;
+        this.trendEmaBuffer[idx] = ema;
+        this.trendHead++;
+        if (this.trendCount < BUFFER_SIZE) this.trendCount++;
+    }
 }
 
 const fleet = new Map<string, TurbineState>();
@@ -98,25 +152,29 @@ self.onmessage = (e: MessageEvent<PdMWorkerInput>): void => {
         const state = getTurbine(update.id);
         const { timestamp, vibration, temperature } = update;
 
-        // Push into rolling buffer
-        state.rawBuffer.push(vibration);
-        if (state.rawBuffer.length > 50) state.rawBuffer.shift();
+        // Push into rolling circular buffer (index-based, no shift/push)
+        state.pushVib(vibration);
 
         // Need >=50 points (1 second) for meaningful regression
-        if (state.rawBuffer.length >= 50) {
+        if (state.vibCount >= RAW_BUFFER_SIZE) {
             // Find absolute maximum peak in the entire rolling buffer
-            const peakAmplitude = Math.max(...state.rawBuffer.map(Math.abs));
+            const peakAmplitude = state.peakVib();
 
             // 1. EMA
             const ema = calculateEMA(peakAmplitude, state.lastEMA, 0.1);
             state.lastEMA = ema;
 
-            // Push the smoothed result to the trend buffer
-            state.trendBuffer.push([timestamp, ema]);
-            if (state.trendBuffer.length > BUFFER_SIZE) state.trendBuffer.shift();
+            // Push the smoothed result to the trend buffer (circular)
+            state.pushTrend(timestamp, ema);
 
-            // 2. Linear Regression slope
-            const slope = calculateLinearRegression(state.trendBuffer);
+            // 2. Linear Regression slope (over typed arrays)
+            const slope = calculateLinearRegressionTyped(
+                state.trendTsBuffer,
+                state.trendEmaBuffer,
+                state.trendHead,
+                state.trendCount,
+                BUFFER_SIZE
+            );
 
             // 3. RUL (critical threshold = 12.0 mm/s)
             const rul = calculateRUL(ema, slope, 12.0);

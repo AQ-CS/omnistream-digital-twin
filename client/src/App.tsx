@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import type { AlignedData } from 'uplot';
 import { LiveReadout, type LiveReadoutHandle } from './components/LiveReadout';
 import { TelemetryChart, type TelemetryChartHandle, type ChartConfig } from './components/TelemetryChart';
@@ -6,7 +6,7 @@ import { DigitalTwinSchematic, type DigitalTwinSchematicHandle, type TwinNodeSta
 import { DiagnosticsPanel } from './components/DiagnosticsPanel';
 import { FleetOverview } from './components/FleetOverview';
 import { TelemetryHistorian } from './utils/Historian';
-import type { TelemetryPayload, FleetPdMState } from './types/telemetry';
+import type { TelemetryPayload, FleetPdMState, ConnectionStatus } from './types/telemetry';
 import type { PdMWorkerOutput } from './workers/pdm.worker';
 import PdMWorker from './workers/pdm.worker?worker';
 
@@ -41,6 +41,11 @@ function App() {
 
   // For Diagnostics Panel payload render
   const [currentPayload, setCurrentPayload] = useState<TelemetryPayload | undefined>();
+
+  // ─── WebSocket Supervisor State ─────────────────────────────
+  const [connStatus, setConnStatus] = useState<ConnectionStatus>('DISCONNECTED');
+  const connStatusRef = useRef<ConnectionStatus>('DISCONNECTED');
+  const lastSeenRef = useRef<number>(Date.now());
 
   // ─── Imperative Refs (Isolating 50Hz Data from React) ──────
   const rpmChartRef = useRef<TelemetryChartHandle>(null);
@@ -218,16 +223,29 @@ function App() {
     };
   }, []); // Run ONCE on mount. Do not rebind worker on turbine change, otherwise it wipes the fleet PdM state.
 
-  // ─── WebSocket Engine ────────────────────────────────────────
-  useEffect(() => {
+  // ─── WebSocket Supervisor with Heartbeat & Reconnection ─────
+  const connect = useCallback(() => {
     const ws = new WebSocket('ws://localhost:8080');
     wsRef.current = ws;
 
-    ws.onopen = () => console.log('[HMI] Connected @ 50Hz (Multiplexed Fleet)');
+    ws.onopen = () => {
+      console.log('[HMI] Connected @ 50Hz (Multiplexed Fleet)');
+      setConnStatus('CONNECTED');
+      connStatusRef.current = 'CONNECTED';
+    };
 
     let lastPayloadRender = 0;
 
     ws.onmessage = (event: MessageEvent) => {
+      // Update watchdog timestamp on every message
+      lastSeenRef.current = Date.now();
+
+      // If we were STALE, we're back
+      if (connStatusRef.current === 'STALE') {
+        setConnStatus('CONNECTED');
+        connStatusRef.current = 'CONNECTED';
+      }
+
       try {
         // Now expecting an array of [{id, t, r, v, c}]
         const payloadArray: TelemetryPayload[] = JSON.parse(event.data as string);
@@ -263,7 +281,6 @@ function App() {
             const rawArr = vibBuffer.current[1];
             const recent = rawArr.slice(-50); // 1-second window for UI smoothness
             const currentPeak = Math.max(...recent.map(Math.abs));
-            // console.log(`[UI] ${activeTurbine} | Peak Vibration: ${currentPeak.toFixed(2)} mm/s`);
             vibBuffer.current[2].push(currentPeak);
 
             tempBuffer.current[0].push(ts); tempBuffer.current[1].push(activePayload.c);
@@ -304,9 +321,43 @@ function App() {
       }
     };
 
-    ws.onclose = () => console.log('[HMI] Disconnected');
-    return () => { ws.close(); wsRef.current = null; };
-  }, []); // Connect ONCE. Avoid WS reconnects on tab swapping!
+    ws.onclose = () => {
+      console.log('[HMI] Disconnected — scheduling reconnect');
+      wsRef.current = null;
+      setConnStatus('RECONNECTING');
+      connStatusRef.current = 'RECONNECTING';
+
+      // Exponential backoff capped at 5s
+      setTimeout(() => {
+        console.log('[HMI] Attempting reconnect...');
+        connect();
+      }, Math.min(1000 * Math.pow(2, Math.random()), 5000));
+    };
+
+    ws.onerror = () => {
+      // onclose will fire after onerror, which handles reconnection
+      console.error('[HMI] WebSocket error');
+    };
+  }, []);
+
+  useEffect(() => {
+    connect();
+
+    // Data-stale watchdog: if no data for 2s while supposedly connected, go STALE
+    const watchdogId = setInterval(() => {
+      if (connStatusRef.current === 'CONNECTED' && Date.now() - lastSeenRef.current > 2000) {
+        console.warn('[HMI] Data stale — no messages for 2s');
+        setConnStatus('STALE');
+        connStatusRef.current = 'STALE';
+      }
+    }, 1000);
+
+    return () => {
+      clearInterval(watchdogId);
+      wsRef.current?.close();
+      wsRef.current = null;
+    };
+  }, [connect]);
 
 
   // ─── Actions ─────────────────────────────────────────────────
@@ -320,19 +371,41 @@ function App() {
     historianRef.current.exportCSV(selectedTurbine);
   };
 
+  const isConnected = connStatus === 'CONNECTED';
+
   // ─── Sidebar Render Helpers ───────────────────────────────────
   const renderStatusIcon = (rul: number, tempStatus?: string) => {
     const isCritical = rul < 30 || tempStatus === 'critical';
     const isWarning = rul < 60 || tempStatus === 'warning';
 
-    // X for Critical
-    if (isCritical) return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--hmi-alarm-critical)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6L6 18M6 6l12 12" /></svg>;
-    // Triangle for Warning
-    if (isWarning) return <svg width="14" height="14" viewBox="0 0 24 24" fill="var(--hmi-alarm-warning)"><path d="M12 2L22 20H2Z" /></svg>;
+    // Critical: Boxed X
+    if (isCritical) return (
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--hmi-alarm-critical)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+        <rect x="2" y="2" width="20" height="20" rx="2" />
+        <path d="M8 8l8 8M16 8l-8 8" />
+      </svg>
+    );
+    // Warning: Filled larger triangle with inner exclamation
+    if (isWarning) return (
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="var(--hmi-alarm-warning)" stroke="var(--hmi-alarm-warning)" strokeWidth="1">
+        <path d="M12 2L22 20H2Z" />
+        <path d="M12 9v4" stroke="#2d2001" strokeWidth="2" strokeLinecap="round" />
+        <circle cx="12" cy="16" r="1" fill="#2d2001" />
+      </svg>
+    );
     // Hollow Circle for Nominal
     return <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="3"><circle cx="12" cy="12" r="10" /></svg>;
   };
 
+  // ─── Connection Status Label ─────────────────────────────────
+  const connLabel = connStatus === 'CONNECTED' ? '50Hz Live'
+    : connStatus === 'STALE' ? 'DATA STALE'
+      : connStatus === 'RECONNECTING' ? 'RECONNECTING'
+        : 'DISCONNECTED';
+
+  const connDotColor = connStatus === 'CONNECTED' ? 'var(--hmi-accent)'
+    : connStatus === 'STALE' ? 'var(--hmi-alarm-warning)'
+      : '#475569';
 
   // ─── Render ───────────────────────────────────────────────────
   return (
@@ -386,9 +459,9 @@ function App() {
               </p>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <button className="hmi-btn" onClick={() => send('INJECT_FAULT')}>Bearing Fault</button>
-              <button className="hmi-btn" onClick={() => send('THERMAL_RUNAWAY')}>Thermal Runaway</button>
-              <button className="hmi-btn" onClick={() => send('CLEAR_FAULT')}>Clear All</button>
+              <button className="hmi-btn" onClick={() => send('INJECT_FAULT')} disabled={!isConnected} style={{ opacity: isConnected ? 1 : 0.4 }}>Bearing Fault</button>
+              <button className="hmi-btn" onClick={() => send('THERMAL_RUNAWAY')} disabled={!isConnected} style={{ opacity: isConnected ? 1 : 0.4 }}>Thermal Runaway</button>
+              <button className="hmi-btn" onClick={() => send('CLEAR_FAULT')} disabled={!isConnected} style={{ opacity: isConnected ? 1 : 0.4 }}>Clear All</button>
               {selectedTurbine !== 'OVERVIEW' && (
                 <>
                   <div style={{ width: '1px', height: '24px', background: 'var(--hmi-border)' }}></div>
@@ -397,14 +470,18 @@ function App() {
               )}
               <div style={{ width: '1px', height: '24px', background: 'var(--hmi-border)' }}></div>
               <div className="live-indicator">
-                <div className="live-dot"></div>
-                <span className="live-text">50Hz Live</span>
+                <div className="live-dot" style={connStatus !== 'CONNECTED' ? { '--dot-color': connDotColor } as React.CSSProperties : undefined}>
+                  {connStatus !== 'CONNECTED' && (
+                    <style>{`.live-dot::before, .live-dot::after { background: ${connDotColor} !important; }`}</style>
+                  )}
+                </div>
+                <span className="live-text" style={{ color: connStatus === 'STALE' ? 'var(--hmi-alarm-warning)' : connStatus === 'CONNECTED' ? 'var(--hmi-text-muted)' : '#475569' }}>{connLabel}</span>
               </div>
             </div>
           </header>
 
           {selectedTurbine === 'OVERVIEW' && (
-            <FleetOverview fleetState={fleetState} fleetTelemetry={fleetTelemetry} onDrillDown={setSelectedTurbine} />
+            <FleetOverview fleetState={fleetState} fleetTelemetry={fleetTelemetry} onDrillDown={setSelectedTurbine} connStatus={connStatus} />
           )}
 
           {selectedTurbine !== 'OVERVIEW' && (
@@ -443,6 +520,7 @@ function App() {
                     turbineId={selectedTurbine}
                     payload={currentPayload}
                     pdmState={fleetState[selectedTurbine]}
+                    connStatus={connStatus}
                   />
                 </div>
 
