@@ -1,0 +1,2846 @@
+This file is a merged representation of a subset of the codebase, containing files not matching ignore patterns, combined into a single document by Repomix.
+
+<file_summary>
+This section contains a summary of this file.
+
+<purpose>
+This file contains a packed representation of a subset of the repository's contents that is considered the most important context.
+It is designed to be easily consumable by AI systems for analysis, code review,
+or other automated processes.
+</purpose>
+
+<file_format>
+The content is organized as follows:
+1. This summary section
+2. Repository information
+3. Directory structure
+4. Repository files (if enabled)
+5. Multiple file entries, each consisting of:
+  - File path as an attribute
+  - Full contents of the file
+</file_format>
+
+<usage_guidelines>
+- This file should be treated as read-only. Any changes should be made to the
+  original repository files, not this packed version.
+- When processing this file, use the file path to distinguish
+  between different files in the repository.
+- Be aware that this file may contain sensitive information. Handle it with
+  the same level of security as you would the original repository.
+</usage_guidelines>
+
+<notes>
+- Some files may have been excluded based on .gitignore rules and Repomix's configuration
+- Binary files are not included in this packed representation. Please refer to the Repository Structure section for a complete list of file paths, including binary files
+- Files matching these patterns are excluded: node_modules/**, dist/**, .git/**
+- Files matching patterns in .gitignore are excluded
+- Files matching default ignore patterns are excluded
+- Files are sorted by Git change count (files with more changes are at the bottom)
+</notes>
+
+</file_summary>
+
+<directory_structure>
+.gitattributes
+.gitignore
+architecture.md
+client/eslint.config.js
+client/index.html
+client/package.json
+client/public/vite.svg
+client/README.md
+client/src/App.css
+client/src/App.tsx
+client/src/assets/react.svg
+client/src/components/DiagnosticsPanel.tsx
+client/src/components/DigitalTwinSchematic.tsx
+client/src/components/FleetOverview.tsx
+client/src/components/LiveReadout.tsx
+client/src/components/TelemetryChart.tsx
+client/src/index.css
+client/src/main.tsx
+client/src/types/telemetry.ts
+client/src/utils/Historian.ts
+client/src/utils/pdmMath.ts
+client/src/workers/pdm.worker.ts
+client/tsconfig.app.json
+client/tsconfig.json
+client/tsconfig.node.json
+client/vite.config.ts
+README.md
+server/package.json
+server/server.js
+</directory_structure>
+
+<files>
+This section contains the contents of the repository's files.
+
+<file path="client/src/components/DiagnosticsPanel.tsx">
+import type { TelemetryPayload, PdMState } from '../types/telemetry';
+
+interface DiagnosticsPanelProps {
+    turbineId: string;
+    payload?: TelemetryPayload;
+    pdmState?: PdMState;
+}
+
+export function DiagnosticsPanel({ turbineId, payload, pdmState }: DiagnosticsPanelProps) {
+    let statusColor = 'var(--hmi-border)';
+    let bgColor = 'var(--hmi-bg-card)';
+    let isWarningOrCritical = false;
+
+    if (pdmState) {
+        const isThermalCritical = pdmState.temperatureStatus === 'critical';
+        const isThermalWarning = pdmState.temperatureStatus === 'warning';
+        const isVibCritical = pdmState.estimatedRUL < 30;
+        const isVibWarning = pdmState.estimatedRUL < 60;
+
+        if (isThermalCritical || isVibCritical) {
+            statusColor = 'var(--hmi-alarm-critical)';
+            bgColor = 'var(--hmi-bg-card)';
+            isWarningOrCritical = true;
+        } else if (isThermalWarning || isVibWarning) {
+            statusColor = 'var(--hmi-alarm-warning)';
+            bgColor = 'var(--hmi-bg-card)';
+            isWarningOrCritical = true;
+        }
+    }
+
+    return (
+        <div className="hmi-panel" style={{
+            flex: 1,
+            display: 'flex',
+            flexDirection: 'column',
+            border: isWarningOrCritical ? `1px solid ${statusColor}80` : '1px solid var(--hmi-border)',
+            boxSizing: 'border-box',
+            backgroundColor: isWarningOrCritical ? `${statusColor}10` : 'var(--hmi-bg-card)',
+            transition: 'all 0.3s'
+        }}>
+            <div className="hmi-panel-header" style={{ borderBottomColor: isWarningOrCritical ? `${statusColor}40` : 'var(--hmi-border)' }}>
+                <span className="hmi-panel-title">Active Diagnostics</span>
+                <span className="tabular-data" style={{ fontSize: '11px', color: 'var(--hmi-text-dim)' }}>{turbineId} STATUS LOG</span>
+            </div>
+
+            <div className="hmi-panel-body" style={{ flex: 1, position: 'relative', minHeight: '120px' }}>
+                {!payload || !pdmState ? (
+                    <div style={{ color: 'var(--hmi-text-dim)', fontSize: '12px' }}>Awaiting telemetry...</div>
+                ) : (
+                    <div style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '8px'
+                    }}>
+                        {/* Dynamic Row */}
+                        {!pdmState ? null : (
+                            <>
+                                {pdmState.temperatureStatus !== 'nominal' && (
+                                    <div style={{
+                                        background: 'rgba(239, 68, 68, 0.1)',
+                                        borderLeft: `3px solid ${pdmState.temperatureStatus === 'critical' ? 'var(--hmi-alarm-critical)' : 'var(--hmi-alarm-warning)'}`,
+                                        padding: '12px 16px',
+                                        borderRadius: '4px',
+                                        display: 'flex',
+                                        alignItems: 'flex-start',
+                                        gap: '12px'
+                                    }}>
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={pdmState.temperatureStatus === 'critical' ? 'var(--hmi-alarm-critical)' : 'var(--hmi-alarm-warning)'} strokeWidth="2" style={{ marginTop: '2px' }} className="fault-pulse">
+                                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                                        </svg>
+                                        <div>
+                                            <div style={{ color: '#fca5a5', fontWeight: 600, fontSize: '13px' }}>
+                                                THERMAL RUNAWAY: Sustained high combustor temp
+                                            </div>
+                                            <div style={{ color: '#fca5a5', opacity: 0.8, fontSize: '12px', marginTop: '2px' }}>
+                                                Temp: {pdmState.smoothedTemperature.toFixed(1)}°C. Recommend immediate shutdown.
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {pdmState.estimatedRUL < 60 && (
+                                    <div style={{
+                                        background: 'rgba(239, 68, 68, 0.1)',
+                                        borderLeft: `3px solid ${pdmState.estimatedRUL < 30 ? 'var(--hmi-alarm-critical)' : 'var(--hmi-alarm-warning)'}`,
+                                        padding: '12px 16px',
+                                        borderRadius: '4px',
+                                        display: 'flex',
+                                        alignItems: 'flex-start',
+                                        gap: '12px'
+                                    }}>
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={pdmState.estimatedRUL < 30 ? 'var(--hmi-alarm-critical)' : 'var(--hmi-alarm-warning)'} strokeWidth="2" style={{ marginTop: '2px' }} className="fault-pulse">
+                                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                                        </svg>
+                                        <div>
+                                            <div style={{ color: '#fca5a5', fontWeight: 600, fontSize: '13px' }}>
+                                                BEARING FAULT: Degradation slope steepening
+                                            </div>
+                                            <div style={{ color: '#fca5a5', opacity: 0.8, fontSize: '12px', marginTop: '2px' }}>
+                                                RUL &lt; 60s. Recommend step-down protocol immediately.
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {pdmState.temperatureStatus === 'nominal' && pdmState.estimatedRUL >= 60 && (
+                                    <div style={{
+                                        background: 'rgba(16, 185, 129, 0.05)',
+                                        borderLeft: '3px solid #10b981',
+                                        padding: '12px 16px',
+                                        borderRadius: '4px',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '12px'
+                                    }}>
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2">
+                                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                                        </svg>
+                                        <div style={{ color: '#6ee7b7', fontWeight: 500, fontSize: '13px' }}>
+                                            All systems nominal.
+                                        </div>
+                                    </div>
+                                )}
+                            </>
+                        )}
+
+                        {/* Static Nominal Rows (Context) */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 16px', color: 'var(--hmi-text-muted)', fontSize: '12px' }}>
+                            <div style={{ width: '4px', height: '4px', borderRadius: '50%', background: 'var(--hmi-text-dim)' }}></div>
+                            Combustor thermal distribution symmetric
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 16px', color: 'var(--hmi-text-muted)', fontSize: '12px' }}>
+                            <div style={{ width: '4px', height: '4px', borderRadius: '50%', background: 'var(--hmi-text-dim)' }}></div>
+                            Lube oil pressure stable at 45 PSI
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 16px', color: 'var(--hmi-text-muted)', fontSize: '12px' }}>
+                            <div style={{ width: '4px', height: '4px', borderRadius: '50%', background: 'var(--hmi-text-dim)' }}></div>
+                            Cooling air intake filters functioning normally
+                        </div>
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+}
+</file>
+
+<file path="client/src/components/FleetOverview.tsx">
+import type { TelemetryPayload, FleetPdMState } from '../types/telemetry';
+
+interface FleetOverviewProps {
+    fleetState: FleetPdMState;
+    fleetTelemetry: TelemetryPayload[];
+    onDrillDown: (id: string) => void;
+}
+
+export function FleetOverview({ fleetState, fleetTelemetry, onDrillDown }: FleetOverviewProps) {
+    const turbines = ['T-01', 'T-02', 'T-03'];
+
+    return (
+        <div style={{ padding: '24px 32px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+            <div style={{ borderBottom: '2px solid var(--hmi-border)', paddingBottom: '16px' }}>
+                <h2 style={{ margin: 0, fontSize: '20px', fontWeight: 700, color: 'var(--hmi-text-primary)', letterSpacing: '-0.02em' }}>
+                    Fleet Overview
+                </h2>
+                <p style={{ margin: '4px 0 0', fontSize: '12px', color: 'var(--hmi-text-muted)' }}>
+                    Level 1 Situation Awareness Pipeline · ISA-101 HMI
+                </p>
+            </div>
+
+            <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
+                gap: '24px'
+            }}>
+                {turbines.map(id => {
+                    const pdm = fleetState[id];
+                    const tele = fleetTelemetry.find(t => t.id === id);
+
+                    // State Calculation
+                    let statusColor = 'var(--hmi-text-dim)';
+                    let bgWarning = false;
+
+                    let isThermalWarning = false;
+                    let isThermalCritical = false;
+
+                    if (pdm) {
+                        isThermalWarning = pdm.temperatureStatus === 'warning';
+                        isThermalCritical = pdm.temperatureStatus === 'critical';
+
+                        // Worst-Case Severity Check
+                        if (pdm.estimatedRUL < 30 || isThermalCritical) {
+                            statusColor = 'var(--hmi-alarm-critical)';
+                            bgWarning = true;
+                        } else if (pdm.estimatedRUL < 60 || isThermalWarning) {
+                            statusColor = 'var(--hmi-alarm-warning)';
+                            bgWarning = true;
+                        } else {
+                            statusColor = '#10b981';
+                        }
+                    }
+
+                    const renderStatusIcon = (rul: number, tempStatus: string | undefined) => {
+                        const isCritical = rul < 30 || tempStatus === 'critical';
+                        const isWarning = rul < 60 || tempStatus === 'warning';
+
+                        if (isCritical) return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--hmi-alarm-critical)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6L6 18M6 6l12 12" /></svg>;
+                        if (isWarning) return <svg width="14" height="14" viewBox="0 0 24 24" fill="var(--hmi-alarm-warning)"><path d="M12 2L22 20H2Z" /></svg>;
+                        if (rul === Infinity && !pdm) return null;
+                        return <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="3"><circle cx="12" cy="12" r="10" /></svg>;
+                    };
+
+                    return (
+                        <div
+                            key={id}
+                            onClick={() => onDrillDown(id)}
+                            className="hmi-panel"
+                            style={{
+                                cursor: 'pointer',
+                                border: bgWarning ? `1px solid ${statusColor}80` : '1px solid var(--hmi-border)',
+                                boxSizing: 'border-box',
+                                transition: 'all 0.2s',
+                                backgroundColor: bgWarning ? `${statusColor}10` : 'var(--hmi-bg-card)',
+                            }}
+                            onMouseEnter={(e) => {
+                                e.currentTarget.style.borderColor = bgWarning ? statusColor : 'var(--hmi-text-dim)';
+                                e.currentTarget.style.transform = 'translateY(-2px)';
+                            }}
+                            onMouseLeave={(e) => {
+                                e.currentTarget.style.borderColor = bgWarning ? `${statusColor}80` : 'var(--hmi-border)';
+                                e.currentTarget.style.transform = 'none';
+                            }}
+                        >
+                            <div className="hmi-panel-header" style={{ borderBottomColor: bgWarning ? `${statusColor}40` : 'var(--hmi-border)' }}>
+                                <span className="hmi-panel-title" style={{ fontSize: '14px', color: 'var(--hmi-text-primary)' }}>{id}</span>
+                                <div style={{
+                                    padding: '4px 8px',
+                                    borderRadius: '4px',
+                                    border: `1px solid ${statusColor}40`,
+                                    backgroundColor: `${statusColor}15`,
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center'
+                                }}>
+                                    {renderStatusIcon(pdm ? pdm.estimatedRUL : Infinity, pdm?.temperatureStatus)}
+                                </div>
+                            </div>
+
+                            <div className="hmi-panel-body" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                                    <span style={{ fontSize: '12px', color: 'var(--hmi-text-muted)', fontWeight: 600 }}>Rotor Speed</span>
+                                    <div className="tabular-data">
+                                        <span style={{ fontSize: '20px', fontWeight: 700, color: 'var(--hmi-text-primary)' }}>
+                                            {tele ? tele.r.toFixed(0) : '---'}
+                                        </span>
+                                        <span style={{ fontSize: '11px', color: 'var(--hmi-text-dim)', marginLeft: '4px' }}>RPM</span>
+                                    </div>
+                                </div>
+
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                                    <span style={{ fontSize: '12px', color: 'var(--hmi-text-muted)', fontWeight: 600 }}>Combustor</span>
+                                    <div className="tabular-data">
+                                        <span style={{ fontSize: '20px', fontWeight: 700, color: 'var(--hmi-text-primary)' }}>
+                                            {tele ? tele.c.toFixed(1) : '---'}
+                                        </span>
+                                        <span style={{ fontSize: '11px', color: 'var(--hmi-text-dim)', marginLeft: '4px' }}>°C</span>
+                                    </div>
+                                </div>
+
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                                    <span style={{ fontSize: '12px', color: 'var(--hmi-text-muted)', fontWeight: 600 }}>Vibration (Peak)</span>
+                                    <div className="tabular-data">
+                                        <span style={{ fontSize: '20px', fontWeight: 700, color: bgWarning ? statusColor : 'var(--hmi-text-primary)' }}>
+                                            {pdm ? pdm.smoothedVibration.toFixed(2) : '---'}
+                                        </span>
+                                        <span style={{ fontSize: '11px', color: 'var(--hmi-text-dim)', marginLeft: '4px' }}>mm/s</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div style={{
+                                padding: '12px 16px',
+                                borderTop: bgWarning ? `1px solid ${statusColor}40` : '1px solid var(--hmi-border)',
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                alignItems: 'center'
+                            }}>
+                                <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--hmi-text-muted)', letterSpacing: '0.05em', textTransform: 'uppercase' }}>
+                                    {isThermalCritical || isThermalWarning ? 'THERMAL STATUS' : 'ESTIMATED RUL'}
+                                </span>
+                                <span className="tabular-data" style={{
+                                    fontSize: '16px',
+                                    fontWeight: bgWarning ? 800 : 600,
+                                    color: bgWarning ? statusColor : 'var(--hmi-text-primary)'
+                                }}>
+                                    {isThermalCritical || isThermalWarning ?
+                                        `${pdm?.smoothedTemperature.toFixed(1)} °C` :
+                                        (pdm && pdm.estimatedRUL < Infinity ? `${pdm.estimatedRUL.toFixed(1)}s` : 'Inf')
+                                    }
+                                </span>
+                            </div>
+                        </div>
+                    );
+                })}
+            </div>
+        </div>
+    );
+}
+</file>
+
+<file path="client/src/utils/Historian.ts">
+import type { TelemetryPayload } from '../types/telemetry';
+
+const BUFFER_SIZE = 3000; // 60s at 50Hz per turbine
+
+/**
+ * Pre-allocated circular buffer for incident telemetry capture.
+ * Now manages a Map of circular buffers keyed by turbine ID.
+ */
+export class TelemetryHistorian {
+    // Dictionary mapping turbine ID to its circular buffer properties
+    private readonly fleet = new Map<string, {
+        buffer: (TelemetryPayload | null)[];
+        head: number;
+        count: number;
+    }>();
+
+    private readonly size: number;
+
+    constructor(size: number = BUFFER_SIZE) {
+        this.size = size;
+        this.ensureTurbine('T-01');
+        this.ensureTurbine('T-02');
+        this.ensureTurbine('T-03');
+    }
+
+    private ensureTurbine(id: string) {
+        if (!this.fleet.has(id)) {
+            this.fleet.set(id, {
+                buffer: new Array<TelemetryPayload | null>(this.size).fill(null),
+                head: 0,
+                count: 0
+            });
+        }
+        return this.fleet.get(id)!;
+    }
+
+    /** Write a payload into the circular buffer for the corresponding turbine. */
+    add(payload: TelemetryPayload): void {
+        const tState = this.ensureTurbine(payload.id);
+        tState.buffer[tState.head] = payload;
+        tState.head = (tState.head + 1) % this.size;
+        if (tState.count < this.size) tState.count++;
+    }
+
+    /** Return the recorded sample count for a specific turbine. */
+    getLength(id: string): number {
+        return this.fleet.get(id)?.count || 0;
+    }
+
+    /** Retrieve the most recent N samples for a given turbine in chronological order. */
+    getRecent(id: string, maxCount: number): TelemetryPayload[] {
+        const tState = this.fleet.get(id);
+        if (!tState || tState.count === 0) return [];
+
+        const results: TelemetryPayload[] = [];
+        const start = tState.count < this.size ? 0 : tState.head;
+        const total = tState.count;
+
+        // Optimize to only fetch the last maxCount items
+        const fetchCount = Math.min(total, maxCount);
+        const fetchStart = total - fetchCount;
+
+        for (let i = 0; i < fetchCount; i++) {
+            const idx = (start + fetchStart + i) % this.size;
+            const entry = tState.buffer[idx];
+            if (entry !== null) {
+                results.push(entry);
+            }
+        }
+        return results;
+    }
+
+    /**
+     * Export the buffer of a target turbine as a CSV string in 
+     * chronological order, triggering a browser download.
+     */
+    exportCSV(turbineId: string): void {
+        const tState = this.fleet.get(turbineId);
+        if (!tState || tState.count === 0) return;
+
+        const rows: string[] = [
+            '# OmniStream Incident Report',
+            `# Turbine: ${turbineId}`,
+            '# Limits: Vib >= 12.0 (CRITICAL), Vib >= 7.0 (WARNING)',
+            'timestamp_iso,rpm,vibration_mms,temperature_c,condition'
+        ];
+
+        // Read from oldest entry to newest
+        const start = tState.count < this.size ? 0 : tState.head;
+        const total = tState.count;
+
+        for (let i = 0; i < total; i++) {
+            const idx = (start + i) % this.size;
+            const entry = tState.buffer[idx];
+            if (entry !== null) {
+                let cond = 'NOMINAL';
+                const absVib = Math.abs(entry.v);
+                if (absVib >= 12.0) cond = 'CRITICAL';
+                else if (absVib >= 7.0) cond = 'WARNING';
+
+                const tsIso = new Date(entry.t).toISOString();
+                const rStr = entry.r.toFixed(2);
+                const vStr = entry.v.toFixed(2);
+                const cStr = entry.c.toFixed(2);
+
+                rows.push(`${tsIso},${rStr},${vStr},${cStr},${cond}`);
+            }
+        }
+
+        const csv = rows.join('\n');
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `incident_report_${turbineId}.csv`;
+        link.click();
+        URL.revokeObjectURL(url);
+    }
+}
+</file>
+
+<file path="client/src/workers/pdm.worker.ts">
+// ─── PdM Web Worker ──────────────────────────────────────────
+// Runs EMA, Linear Regression, and RUL off the main thread for all turbines.
+
+import type { FleetPdMState, PdMState } from '../types/telemetry';
+
+// ─── Types ───────────────────────────────────────────────────
+
+export interface PdMWorkerInput {
+    // Main thread sends an array of [timestamp, vibration, temperature] per turbine
+    updates: { id: string; timestamp: number; vibration: number; temperature: number }[];
+}
+
+export interface PdMWorkerOutput {
+    states: FleetPdMState;
+}
+
+// ─── Inline Math (no imports in workers) ─────────────────────
+
+function calculateEMA(current: number, previous: number | null, alpha: number): number {
+    if (previous === null) return current;
+    return (current * alpha) + (previous * (1 - alpha));
+}
+
+function calculateLinearRegression(data: [number, number][]): number {
+    const n = data.length;
+    if (n < 2) return 0;
+
+    let sumX = 0, sumY = 0, sumXY = 0, sumX2 = 0;
+    for (let i = 0; i < n; i++) {
+        const x = data[i][0];
+        const y = data[i][1];
+        sumX += x;
+        sumY += y;
+        sumXY += x * y;
+        sumX2 += x * x;
+    }
+
+    const xMean = sumX / n;
+    const yMean = sumY / n;
+    const num = sumXY - (n * xMean * yMean);
+    const den = sumX2 - (n * xMean * xMean);
+    return den === 0 ? 0 : num / den;
+}
+
+function calculateRUL(current: number, slope: number, threshold: number): number {
+    const remaining = threshold - current;
+
+    // 1. First, check if the machine is already dead
+    if (remaining <= 0) return 0;
+
+    // 2. Next, check if it's actually getting worse
+    if (slope <= 0.05) return Infinity; // Stable or negligible degradation
+
+    // 3. Finally, calculate the countdown
+    return remaining / slope;
+}
+
+// ─── Worker State ────────────────────────────────────────────
+
+const BUFFER_SIZE = 250; // 5 seconds at 50Hz
+
+// Maintain an isolated state slice for every multiplexed turbine
+class TurbineState {
+    public rawBuffer: number[] = [];
+    public trendBuffer: [number, number][] = [];
+    public lastEMA: number | null = null;
+
+    // Thermal Tracking
+    public lastTempEMA: number | null = null;
+
+    public currentPdM: PdMState = {
+        smoothedVibration: 0,
+        degradationSlope: 0,
+        estimatedRUL: Infinity,
+        smoothedTemperature: 0,
+        temperatureStatus: 'nominal'
+    };
+}
+
+const fleet = new Map<string, TurbineState>();
+
+function getTurbine(id: string): TurbineState {
+    if (!fleet.has(id)) {
+        fleet.set(id, new TurbineState());
+    }
+    return fleet.get(id)!;
+}
+
+// ─── Message Handler ─────────────────────────────────────────
+
+self.onmessage = (e: MessageEvent<PdMWorkerInput>): void => {
+    const { updates } = e.data;
+
+    // We will build a batched response mapping IDs to their PdMState
+    const responseMap: FleetPdMState = {};
+
+    for (const update of updates) {
+        const state = getTurbine(update.id);
+        const { timestamp, vibration, temperature } = update;
+
+        // Push into rolling buffer
+        state.rawBuffer.push(vibration);
+        if (state.rawBuffer.length > 50) state.rawBuffer.shift();
+
+        // Need >=50 points (1 second) for meaningful regression
+        if (state.rawBuffer.length >= 50) {
+            // Find absolute maximum peak in the entire rolling buffer
+            const peakAmplitude = Math.max(...state.rawBuffer.map(Math.abs));
+
+            // 1. EMA
+            const ema = calculateEMA(peakAmplitude, state.lastEMA, 0.1);
+            state.lastEMA = ema;
+
+            // Push the smoothed result to the trend buffer
+            state.trendBuffer.push([timestamp, ema]);
+            if (state.trendBuffer.length > BUFFER_SIZE) state.trendBuffer.shift();
+
+            // 2. Linear Regression slope
+            const slope = calculateLinearRegression(state.trendBuffer);
+
+            // 3. RUL (critical threshold = 12.0 mm/s)
+            const rul = calculateRUL(ema, slope, 12.0);
+
+            // 4. Thermal
+            const tempEma = calculateEMA(temperature, state.lastTempEMA, 0.05); // Slower smoothing for thermal
+            state.lastTempEMA = tempEma;
+
+            let tempStatus: 'nominal' | 'warning' | 'critical' = 'nominal';
+            if (tempEma >= 960) tempStatus = 'critical';       // Thermal runaway critical threshold
+            else if (tempEma >= 940) tempStatus = 'warning';   // High temp warning
+
+            if (update.id === 'T-03') {
+                console.log(`[Worker] ${update.id} | Peak: ${peakAmplitude.toFixed(2)} | EMA: ${ema.toFixed(3)} | Slope: ${slope.toFixed(6)} | RUL: ${rul.toFixed(1)} | Temp: ${tempEma.toFixed(1)} (${tempStatus})`);
+            }
+
+            state.currentPdM = {
+                smoothedVibration: ema,
+                degradationSlope: slope,
+                estimatedRUL: rul,
+                smoothedTemperature: tempEma,
+                temperatureStatus: tempStatus
+            };
+        }
+
+        responseMap[update.id] = state.currentPdM;
+    }
+
+    // Post the aggregated multi-turbine State map back to UI
+    const output: PdMWorkerOutput = { states: responseMap };
+    (self as unknown as Worker).postMessage(output);
+};
+</file>
+
+<file path=".gitattributes">
+# Auto detect text files and perform LF normalization
+* text=auto
+</file>
+
+<file path=".gitignore">
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+dist
+dist-ssr
+*.local
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+</file>
+
+<file path="architecture.md">
+# OmniStream Digital Twin: Project Architecture & Context
+**Target:** Siemens Energy Technical Proof-of-Concept
+**Core Goal:** Demonstrate high-performance, industrial-grade telemetry handling, zero-latency React architecture, and adherence to ISA-101 HMI standards.
+
+## 1. System Architecture
+- **Backend (Turbine Simulator):** Node.js WebSocket (WS) Server. Generates continuous sine-wave data with random noise to simulate a physical gas turbine.
+- **Transmission:** 50Hz (50 updates per second).
+- **Payload Structure:** Highly compressed JSON to simulate embedded C++ constraints. 
+  - Format: `{ t: timestamp, r: RPM, v: vibration_hz, c: combustor_temp_c }`
+- **Fault Injection Pipeline:** The WebSocket server includes an `inject_fault` listener. When triggered by the frontend UI, it mathematically degrades the simulated bearing vibration over a 60-second window to test the forecasting algorithms.
+- **Frontend:** React + Vite + TypeScript.
+- **Rendering Engine:** uPlot or Apache ECharts (Canvas/WebGL). STRICT RULE: No SVG-based charting (e.g., Recharts) due to React DOM reconciliation crashing at 50Hz.
+- **State Management:** Bypass React `useState` for high-frequency telemetry. Use `useRef` to catch WebSocket packets and mutate the `<canvas>` DOM directly.
+
+## 2. UI/UX Principles (ISA-101 Standards)
+- **Color Palette:** Monochromatic base (dark slate `#1e293b`). 
+- **Alarm By Exception:** Never use red, orange, or yellow for generic UI elements. These are strictly reserved for threshold alarms.
+- **Typography:** CSS MUST include `font-variant-numeric: tabular-nums` to prevent layout jitter from rapidly changing telemetry numbers.
+- **Layout:** Level-1 overview, drilling down to Level-3 specific sensor charts. Include a 2D digital twin schematic where individual nodes glow based on threshold states.
+
+## 3. Advanced Features (The "Wow" Factor)
+- **Predictive Maintenance (PdM) & Remaining Useful Life (RUL):** The system implements a real-time condition monitoring algorithm. It uses an Exponential Moving Average (EMA) to smooth out the noisy 50Hz vibration data.
+- **Agentic Forecasting:** Employs a rolling Least Squares Linear Regression to calculate the deterioration slope of the smoothed data. It projects this slope against a critical failure threshold to dynamically display the equipment's Remaining Useful Life (RUL) in seconds, triggering an automated warning before actual failure occurs.
+</file>
+
+<file path="client/eslint.config.js">
+import js from '@eslint/js'
+import globals from 'globals'
+import reactHooks from 'eslint-plugin-react-hooks'
+import reactRefresh from 'eslint-plugin-react-refresh'
+import tseslint from 'typescript-eslint'
+import { defineConfig, globalIgnores } from 'eslint/config'
+
+export default defineConfig([
+  globalIgnores(['dist']),
+  {
+    files: ['**/*.{ts,tsx}'],
+    extends: [
+      js.configs.recommended,
+      tseslint.configs.recommended,
+      reactHooks.configs.flat.recommended,
+      reactRefresh.configs.vite,
+    ],
+    languageOptions: {
+      ecmaVersion: 2020,
+      globals: globals.browser,
+    },
+  },
+])
+</file>
+
+<file path="client/index.html">
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>client</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
+</file>
+
+<file path="client/package.json">
+{
+  "name": "client",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "lint": "eslint .",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "autoprefixer": "^10.4.27",
+    "postcss": "^8.5.6",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "tailwindcss": "^4.2.1",
+    "uplot": "^1.6.32"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.1",
+    "@types/node": "^24.10.1",
+    "@types/react": "^19.2.7",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^5.1.1",
+    "eslint": "^9.39.1",
+    "eslint-plugin-react-hooks": "^7.0.1",
+    "eslint-plugin-react-refresh": "^0.4.24",
+    "globals": "^16.5.0",
+    "typescript": "~5.9.3",
+    "typescript-eslint": "^8.48.0",
+    "vite": "^7.3.1"
+  }
+}
+</file>
+
+<file path="client/public/vite.svg">
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" aria-hidden="true" role="img" class="iconify iconify--logos" width="31.88" height="32" preserveAspectRatio="xMidYMid meet" viewBox="0 0 256 257"><defs><linearGradient id="IconifyId1813088fe1fbc01fb466" x1="-.828%" x2="57.636%" y1="7.652%" y2="78.411%"><stop offset="0%" stop-color="#41D1FF"></stop><stop offset="100%" stop-color="#BD34FE"></stop></linearGradient><linearGradient id="IconifyId1813088fe1fbc01fb467" x1="43.376%" x2="50.316%" y1="2.242%" y2="89.03%"><stop offset="0%" stop-color="#FFEA83"></stop><stop offset="8.333%" stop-color="#FFDD35"></stop><stop offset="100%" stop-color="#FFA800"></stop></linearGradient></defs><path fill="url(#IconifyId1813088fe1fbc01fb466)" d="M255.153 37.938L134.897 252.976c-2.483 4.44-8.862 4.466-11.382.048L.875 37.958c-2.746-4.814 1.371-10.646 6.827-9.67l120.385 21.517a6.537 6.537 0 0 0 2.322-.004l117.867-21.483c5.438-.991 9.574 4.796 6.877 9.62Z"></path><path fill="url(#IconifyId1813088fe1fbc01fb467)" d="M185.432.063L96.44 17.501a3.268 3.268 0 0 0-2.634 3.014l-5.474 92.456a3.268 3.268 0 0 0 3.997 3.378l24.777-5.718c2.318-.535 4.413 1.507 3.936 3.838l-7.361 36.047c-.495 2.426 1.782 4.5 4.151 3.78l15.304-4.649c2.372-.72 4.652 1.36 4.15 3.788l-11.698 56.621c-.732 3.542 3.979 5.473 5.943 2.437l1.313-2.028l72.516-144.72c1.215-2.423-.88-5.186-3.54-4.672l-25.505 4.922c-2.396.462-4.435-1.77-3.759-4.114l16.646-57.705c.677-2.35-1.37-4.583-3.769-4.113Z"></path></svg>
+</file>
+
+<file path="client/README.md">
+# React + TypeScript + Vite
+
+This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+
+Currently, two official plugins are available:
+
+- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
+- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+
+## React Compiler
+
+The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+
+## Expanding the ESLint configuration
+
+If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+
+```js
+export default defineConfig([
+  globalIgnores(['dist']),
+  {
+    files: ['**/*.{ts,tsx}'],
+    extends: [
+      // Other configs...
+
+      // Remove tseslint.configs.recommended and replace with this
+      tseslint.configs.recommendedTypeChecked,
+      // Alternatively, use this for stricter rules
+      tseslint.configs.strictTypeChecked,
+      // Optionally, add this for stylistic rules
+      tseslint.configs.stylisticTypeChecked,
+
+      // Other configs...
+    ],
+    languageOptions: {
+      parserOptions: {
+        project: ['./tsconfig.node.json', './tsconfig.app.json'],
+        tsconfigRootDir: import.meta.dirname,
+      },
+      // other options...
+    },
+  },
+])
+```
+
+You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+
+```js
+// eslint.config.js
+import reactX from 'eslint-plugin-react-x'
+import reactDom from 'eslint-plugin-react-dom'
+
+export default defineConfig([
+  globalIgnores(['dist']),
+  {
+    files: ['**/*.{ts,tsx}'],
+    extends: [
+      // Other configs...
+      // Enable lint rules for React
+      reactX.configs['recommended-typescript'],
+      // Enable lint rules for React DOM
+      reactDom.configs.recommended,
+    ],
+    languageOptions: {
+      parserOptions: {
+        project: ['./tsconfig.node.json', './tsconfig.app.json'],
+        tsconfigRootDir: import.meta.dirname,
+      },
+      // other options...
+    },
+  },
+])
+```
+</file>
+
+<file path="client/src/App.css">
+/* App.css — No Vite boilerplate */
+</file>
+
+<file path="client/src/App.tsx">
+import { useEffect, useRef, useState } from 'react';
+import type { AlignedData } from 'uplot';
+import { LiveReadout, type LiveReadoutHandle } from './components/LiveReadout';
+import { TelemetryChart, type TelemetryChartHandle, type ChartConfig } from './components/TelemetryChart';
+import { DigitalTwinSchematic, type DigitalTwinSchematicHandle, type TwinNodeState } from './components/DigitalTwinSchematic';
+import { DiagnosticsPanel } from './components/DiagnosticsPanel';
+import { FleetOverview } from './components/FleetOverview';
+import { TelemetryHistorian } from './utils/Historian';
+import type { TelemetryPayload, FleetPdMState } from './types/telemetry';
+import type { PdMWorkerOutput } from './workers/pdm.worker';
+import PdMWorker from './workers/pdm.worker?worker';
+
+// ─── Chart Configs ──────────────────────────────────────────
+const RPM_CONFIG: ChartConfig = {
+  label: 'RPM', stroke: '#38bdf8', yMin: 3450, yMax: 3850, warningLimit: 3700, criticalLimit: 3800,
+};
+
+const VIB_CONFIG: ChartConfig = {
+  label: 'Vibration', stroke: '#94a3b8', secondaryStroke: '#f59e0b', yMin: -5, yMax: 16, warningLimit: 7.0, criticalLimit: 12.0,
+};
+
+const TEMP_CONFIG: ChartConfig = {
+  label: 'Temp °C', stroke: '#818cf8', yMin: 870, yMax: 970, warningLimit: 940, criticalLimit: 955,
+};
+
+const TURBINES = ['T-01', 'T-02', 'T-03'];
+
+function App() {
+  // ─── Turbine Selection State ────────────────────────────────
+  const [selectedTurbine, setSelectedTurbine] = useState<string>('OVERVIEW');
+  const selectedTurbineRef = useRef(selectedTurbine);
+  useEffect(() => {
+    selectedTurbineRef.current = selectedTurbine;
+  }, [selectedTurbine]);
+
+  // ─── React Hook State for UI Rendering ─────────────────────
+  // For the Sidebar dots, we need React state since we want the dots to re-render. 
+  // We throttle this to prevent 50Hz React crashes (we only need the visual alarm states).
+  const [fleetState, setFleetState] = useState<FleetPdMState>({});
+  const [fleetTelemetry, setFleetTelemetry] = useState<TelemetryPayload[]>([]);
+
+  // For Diagnostics Panel payload render
+  const [currentPayload, setCurrentPayload] = useState<TelemetryPayload | undefined>();
+
+  // ─── Imperative Refs (Isolating 50Hz Data from React) ──────
+  const rpmChartRef = useRef<TelemetryChartHandle>(null);
+  const vibChartRef = useRef<TelemetryChartHandle>(null);
+  const tempChartRef = useRef<TelemetryChartHandle>(null);
+  const schematicRef = useRef<DigitalTwinSchematicHandle>(null);
+  const rpmRef = useRef<LiveReadoutHandle>(null);
+  const vibRef = useRef<LiveReadoutHandle>(null);
+  const tempRef = useRef<LiveReadoutHandle>(null);
+  const rulTextRef = useRef<HTMLSpanElement>(null);
+  const warningRef = useRef<HTMLDivElement>(null);
+  const warningTitleRef = useRef<HTMLDivElement>(null);
+  const warningDescRef = useRef<HTMLDivElement>(null);
+  const warningMetricLabelRef = useRef<HTMLDivElement>(null);
+
+  const wsRef = useRef<WebSocket | null>(null);
+  const workerRef = useRef<Worker | null>(null);
+
+  // ─── Data Buffers ───────────────────────────────────────────
+  const rpmBuffer = useRef<number[][]>([[], []]);
+  const vibBuffer = useRef<number[][]>([[], [], []]);
+  const tempBuffer = useRef<number[][]>([[], []]);
+
+  // ─── Historian ──────────────────────────────────────────────
+  const historianRef = useRef<TelemetryHistorian>(new TelemetryHistorian());
+
+  // ─── Handle Selection Change ─────────────────────────────────
+  // When the user swaps left-nav turbines, fetch recent history to prepopulate charts
+  useEffect(() => {
+    if (selectedTurbine === 'OVERVIEW') return;
+
+    const history = historianRef.current.getRecent(selectedTurbine, 500);
+
+    rpmBuffer.current = [history.map(p => p.t / 1000), history.map(p => p.r)];
+
+    const rawVib = history.map(p => p.v);
+    const peakVib = rawVib.map((_, idx, arr) => {
+      const start = Math.max(0, idx - 49);
+      const window = arr.slice(start, idx + 1);
+      return Math.max(...window.map(Math.abs));
+    });
+    vibBuffer.current = [history.map(p => p.t / 1000), rawVib, peakVib];
+
+    tempBuffer.current = [history.map(p => p.t / 1000), history.map(p => p.c)];
+
+    rpmChartRef.current?.updateData(rpmBuffer.current as AlignedData);
+    vibChartRef.current?.updateData(vibBuffer.current as AlignedData);
+    tempChartRef.current?.updateData(tempBuffer.current as AlignedData);
+
+    // Reset warnings / UI states by pulling current state
+    const currentPdM = fleetState[selectedTurbine];
+
+    console.log(`[UI] Switched to ${selectedTurbine}. fleetState value:`, currentPdM);
+
+    if (currentPdM && selectedTurbine !== 'OVERVIEW') {
+      const { estimatedRUL, temperatureStatus, smoothedTemperature } = currentPdM;
+      let ns: TwinNodeState = 'nominal';
+
+      const isThermalCritical = temperatureStatus === 'critical';
+      const isThermalWarning = temperatureStatus === 'warning';
+      const isVibCritical = estimatedRUL <= 0 || estimatedRUL < 30;
+      const isVibWarning = estimatedRUL < 60;
+
+      if (isThermalCritical || estimatedRUL <= 0) ns = 'failure';
+      else if (isVibCritical) ns = 'critical';
+      else if (isThermalWarning || isVibWarning) ns = 'warning';
+
+      console.log(`[UI] Setting initial schematic state to: ${ns} (RUL: ${estimatedRUL.toFixed(1)}, Temp Status: ${temperatureStatus})`);
+      schematicRef.current?.updateBearingState(ns);
+
+      if (ns !== 'nominal') {
+        if (warningRef.current) warningRef.current.style.display = 'flex';
+
+        // Determine whether to show Thermal or Bearing fault message
+        if (isThermalCritical || isThermalWarning) {
+          if (warningTitleRef.current) warningTitleRef.current.innerText = `Agentic Warning: Thermal Runaway Detected on ${selectedTurbine}`;
+          if (warningDescRef.current) warningDescRef.current.innerText = `Combustor temperature exceeding maximum safe limits.`;
+          if (warningMetricLabelRef.current) warningMetricLabelRef.current.innerText = `TEMP °C`;
+          if (rulTextRef.current) rulTextRef.current.innerText = smoothedTemperature ? smoothedTemperature.toFixed(1) : '---';
+        } else {
+          if (warningTitleRef.current) warningTitleRef.current.innerText = `Agentic Warning: Bearing Degradation Detected on ${selectedTurbine}`;
+          if (warningDescRef.current) warningDescRef.current.innerText = `Vibration trend projects imminent threshold breach.`;
+          if (warningMetricLabelRef.current) warningMetricLabelRef.current.innerText = `EST. RUL`;
+          if (estimatedRUL <= 0) {
+            if (rulTextRef.current) rulTextRef.current.innerText = 'CRITICAL';
+          } else {
+            if (rulTextRef.current) rulTextRef.current.innerText = `${estimatedRUL.toFixed(1)}s`;
+          }
+        }
+      } else if (warningRef.current) {
+        console.log(`[UI] Hiding warning banner (Systems Nominal)`);
+        warningRef.current.style.display = 'none';
+      }
+    } else if (warningRef.current) {
+      console.log(`[UI] Overview mode or undefined fleetState. Hiding warning banner.`);
+      warningRef.current.style.display = 'none';
+      schematicRef.current?.updateBearingState('nominal');
+    }
+
+    const last = history.length > 0 ? history[history.length - 1] : { r: 3600, v: 1.5, c: 900 };
+    schematicRef.current?.updateTempValue(last.c);
+    schematicRef.current?.updateVibValue(last.v);
+    schematicRef.current?.updateRpmValue(last.r);
+  }, [selectedTurbine]);
+
+
+  // ─── Web Worker Setup ────────────────────────────────────────
+  useEffect(() => {
+    const worker = new PdMWorker();
+    workerRef.current = worker;
+
+    // Throttle React state updates to ~2Hz so we don't block the main thread UI
+    let lastRenderTime = 0;
+
+    worker.onmessage = (e: MessageEvent<PdMWorkerOutput>) => {
+      const { states } = e.data;
+
+      const now = Date.now();
+      if (now - lastRenderTime > 500) {
+        setFleetState(states);
+
+        // Also check if the currently selected turbine's state cleared and update the banner
+        const activeTurbine = selectedTurbineRef.current;
+        if (activeTurbine !== 'OVERVIEW') {
+          const activeState = states[activeTurbine];
+          if (activeState) {
+            const { estimatedRUL, temperatureStatus, smoothedTemperature } = activeState;
+
+            // Schematic bearing state
+            let ns: TwinNodeState = 'nominal';
+
+            const isThermalCritical = temperatureStatus === 'critical';
+            const isThermalWarning = temperatureStatus === 'warning';
+            const isVibCritical = estimatedRUL <= 0 || estimatedRUL < 30;
+            const isVibWarning = estimatedRUL < 60;
+
+            if (isThermalCritical || estimatedRUL <= 0) ns = 'failure';
+            else if (isVibCritical) ns = 'critical';
+            else if (isThermalWarning || isVibWarning) ns = 'warning';
+
+            schematicRef.current?.updateBearingState(ns);
+
+            // Warning banner overlay
+            if (ns !== 'nominal') {
+              if (warningRef.current) warningRef.current.style.display = 'flex';
+
+              if (isThermalCritical || isThermalWarning) {
+                if (warningTitleRef.current) warningTitleRef.current.innerText = `Agentic Warning: Thermal Runaway Detected on ${activeTurbine}`;
+                if (warningDescRef.current) warningDescRef.current.innerText = `Combustor temperature exceeding maximum safe limits.`;
+                if (warningMetricLabelRef.current) warningMetricLabelRef.current.innerText = `TEMP °C`;
+                if (rulTextRef.current) rulTextRef.current.innerText = smoothedTemperature ? smoothedTemperature.toFixed(1) : '---';
+              } else {
+                if (warningTitleRef.current) warningTitleRef.current.innerText = `Agentic Warning: Bearing Degradation Detected on ${activeTurbine}`;
+                if (warningDescRef.current) warningDescRef.current.innerText = `Vibration trend projects imminent threshold breach.`;
+                if (warningMetricLabelRef.current) warningMetricLabelRef.current.innerText = `EST. RUL`;
+                if (estimatedRUL <= 0) {
+                  if (rulTextRef.current) rulTextRef.current.innerText = 'CRITICAL';
+                } else {
+                  if (rulTextRef.current) rulTextRef.current.innerText = `${estimatedRUL.toFixed(1)}s`;
+                }
+              }
+            } else if (warningRef.current) {
+              warningRef.current.style.display = 'none';
+            }
+          }
+        }
+
+        lastRenderTime = now;
+      }
+    };
+
+    return () => {
+      worker.terminate();
+      workerRef.current = null;
+    };
+  }, []); // Run ONCE on mount. Do not rebind worker on turbine change, otherwise it wipes the fleet PdM state.
+
+  // ─── WebSocket Engine ────────────────────────────────────────
+  useEffect(() => {
+    const ws = new WebSocket('ws://localhost:8080');
+    wsRef.current = ws;
+
+    ws.onopen = () => console.log('[HMI] Connected @ 50Hz (Multiplexed Fleet)');
+
+    let lastPayloadRender = 0;
+
+    ws.onmessage = (event: MessageEvent) => {
+      try {
+        // Now expecting an array of [{id, t, r, v, c}]
+        const payloadArray: TelemetryPayload[] = JSON.parse(event.data as string);
+
+        // 1) Push everything to Worker and Historian
+        const workerUpdates = [];
+        for (const p of payloadArray) {
+          historianRef.current.add(p);
+          workerUpdates.push({ id: p.id, timestamp: p.t / 1000, vibration: p.v, temperature: p.c });
+        }
+        workerRef.current?.postMessage({ updates: workerUpdates });
+
+        // 2) Filter the array to ONLY apply imperative DOM updates for the selected turbine
+        const activeTurbine = selectedTurbineRef.current;
+        if (activeTurbine !== 'OVERVIEW') {
+          const activePayload = payloadArray.find(p => p.id === activeTurbine);
+
+          if (activePayload) {
+            const ts = activePayload.t / 1000;
+
+            // Throttle React state for the Diagnostics Panel
+            const now = Date.now();
+            if (now - lastPayloadRender > 500) {
+              setCurrentPayload(activePayload);
+              setFleetTelemetry(payloadArray);
+              lastPayloadRender = now;
+            }
+
+            // Push to chart buffers
+            rpmBuffer.current[0].push(ts); rpmBuffer.current[1].push(activePayload.r);
+            vibBuffer.current[0].push(ts); vibBuffer.current[1].push(activePayload.v);
+
+            const rawArr = vibBuffer.current[1];
+            const recent = rawArr.slice(-50); // 1-second window for UI smoothness
+            const currentPeak = Math.max(...recent.map(Math.abs));
+            // console.log(`[UI] ${activeTurbine} | Peak Vibration: ${currentPeak.toFixed(2)} mm/s`);
+            vibBuffer.current[2].push(currentPeak);
+
+            tempBuffer.current[0].push(ts); tempBuffer.current[1].push(activePayload.c);
+
+            // Scrolling 10s Window
+            for (const buf of [rpmBuffer, vibBuffer, tempBuffer]) {
+              if (buf.current[0].length > 500) {
+                buf.current[0].shift();
+                buf.current[1].shift();
+                if (buf.current.length > 2) buf.current[2].shift();
+              }
+            }
+
+            // Direct DOM manipulation
+            rpmRef.current?.updateValue(activePayload.r);
+            vibRef.current?.updateValue(currentPeak);
+            tempRef.current?.updateValue(activePayload.c);
+
+            rpmChartRef.current?.updateData(rpmBuffer.current as AlignedData);
+            vibChartRef.current?.updateData(vibBuffer.current as AlignedData);
+            tempChartRef.current?.updateData(tempBuffer.current as AlignedData);
+
+            schematicRef.current?.updateRpmValue(activePayload.r);
+            schematicRef.current?.updateVibValue(currentPeak);
+            schematicRef.current?.updateTempValue(activePayload.c);
+          }
+        } else {
+          // If we are in Overview mode, we must still throttle and publish root react state
+          const now = Date.now();
+          if (now - lastPayloadRender > 500) {
+            setFleetTelemetry(payloadArray);
+            lastPayloadRender = now;
+          }
+        }
+
+      } catch (err) {
+        console.error('[HMI] Parse error', err);
+      }
+    };
+
+    ws.onclose = () => console.log('[HMI] Disconnected');
+    return () => { ws.close(); wsRef.current = null; };
+  }, []); // Connect ONCE. Avoid WS reconnects on tab swapping!
+
+
+  // ─── Actions ─────────────────────────────────────────────────
+  const send = (type: string): void => {
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({ type }));
+    }
+  };
+
+  const exportIncident = (): void => {
+    historianRef.current.exportCSV(selectedTurbine);
+  };
+
+  // ─── Sidebar Render Helpers ───────────────────────────────────
+  const renderStatusIcon = (rul: number, tempStatus?: string) => {
+    const isCritical = rul < 30 || tempStatus === 'critical';
+    const isWarning = rul < 60 || tempStatus === 'warning';
+
+    // X for Critical
+    if (isCritical) return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--hmi-alarm-critical)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6L6 18M6 6l12 12" /></svg>;
+    // Triangle for Warning
+    if (isWarning) return <svg width="14" height="14" viewBox="0 0 24 24" fill="var(--hmi-alarm-warning)"><path d="M12 2L22 20H2Z" /></svg>;
+    // Hollow Circle for Nominal
+    return <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="3"><circle cx="12" cy="12" r="10" /></svg>;
+  };
+
+
+  // ─── Render ───────────────────────────────────────────────────
+  return (
+    <div className="app-layout">
+
+      {/* ─── LEFT SIDEBAR ────────────────────────────── */}
+      <nav className="sidebar">
+        <div className="sidebar-header">
+          <h1 className="sidebar-title">OmniStream</h1>
+          <p className="sidebar-subtitle">Fleet Monitor</p>
+        </div>
+        <div className="sidebar-nav">
+          <div
+            className={`sidebar-item ${selectedTurbine === 'OVERVIEW' ? 'active' : ''}`}
+            onClick={() => setSelectedTurbine('OVERVIEW')}
+            style={{ marginBottom: '8px', borderBottom: '1px solid var(--hmi-border)', paddingBottom: '16px', borderRadius: 0 }}
+          >
+            <span className="sidebar-item-label" style={{ color: 'var(--hmi-accent)' }}>FLEET OVERVIEW</span>
+            {Object.values(fleetState).some(p => p.estimatedRUL < 60 || p.temperatureStatus !== 'nominal') && (
+              renderStatusIcon(
+                Math.min(...Object.values(fleetState).map(p => p.estimatedRUL)),
+                Object.values(fleetState).some(p => p.temperatureStatus === 'critical') ? 'critical' : Object.values(fleetState).some(p => p.temperatureStatus === 'warning') ? 'warning' : 'nominal'
+              )
+            )}
+          </div>
+          {TURBINES.map(id => (
+            <div
+              key={id}
+              className={`sidebar-item ${selectedTurbine === id ? 'active' : ''}`}
+              onClick={() => setSelectedTurbine(id)}
+            >
+              <span className="sidebar-item-label">{id}</span>
+              {renderStatusIcon(fleetState[id] ? fleetState[id].estimatedRUL : Infinity, fleetState[id]?.temperatureStatus)}
+            </div>
+          ))}
+        </div>
+      </nav>
+
+      {/* ─── MAIN CONTENT ────────────────────────────── */}
+      <main className="main-content">
+        <div className="main-scroll">
+
+          {/* Header */}
+          <header className="hmi-header">
+            <div>
+              <h2 style={{ margin: 0, fontSize: '20px', fontWeight: 700, color: 'var(--hmi-text-primary)', letterSpacing: '-0.02em' }}>
+                {selectedTurbine === 'OVERVIEW' ? 'Level 1 Overview' : `Turbine ${selectedTurbine}`}
+              </h2>
+              <p style={{ margin: '2px 0 0', fontSize: '12px', color: 'var(--hmi-text-muted)' }}>
+                {selectedTurbine === 'OVERVIEW' ? 'Global Fleet Status View' : 'Selected Asset Telemetry View'} · ISA-101 HMI
+              </p>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <button className="hmi-btn" onClick={() => send('INJECT_FAULT')}>Bearing Fault</button>
+              <button className="hmi-btn" onClick={() => send('THERMAL_RUNAWAY')}>Thermal Runaway</button>
+              <button className="hmi-btn" onClick={() => send('CLEAR_FAULT')}>Clear All</button>
+              {selectedTurbine !== 'OVERVIEW' && (
+                <>
+                  <div style={{ width: '1px', height: '24px', background: 'var(--hmi-border)' }}></div>
+                  <button className="hmi-btn" onClick={exportIncident}>Export Incident Report</button>
+                </>
+              )}
+              <div style={{ width: '1px', height: '24px', background: 'var(--hmi-border)' }}></div>
+              <div className="live-indicator">
+                <div className="live-dot"></div>
+                <span className="live-text">50Hz Live</span>
+              </div>
+            </div>
+          </header>
+
+          {selectedTurbine === 'OVERVIEW' && (
+            <FleetOverview fleetState={fleetState} fleetTelemetry={fleetTelemetry} onDrillDown={setSelectedTurbine} />
+          )}
+
+          {selectedTurbine !== 'OVERVIEW' && (
+            <>
+              {/* Warning Banner Overlay */}
+              <div ref={warningRef} className="warning-banner" style={{ display: 'none' }}>
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="fault-pulse" style={{ flexShrink: 0 }}>
+                  <path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+                <div style={{ flex: 1 }}>
+                  <div ref={warningTitleRef} style={{ fontSize: '14px', fontWeight: 700, color: '#fca5a5' }}>Agentic Warning: Bearing Degradation Detected on {selectedTurbine}</div>
+                  <div ref={warningDescRef} style={{ fontSize: '12px', color: '#fca5a580', marginTop: '2px' }}>Vibration trend projects imminent threshold breach</div>
+                </div>
+                <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                  <div ref={warningMetricLabelRef} style={{ fontSize: '10px', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#f8717180' }}>Est. RUL</div>
+                  <span ref={rulTextRef} className="tabular-data" style={{ fontSize: '28px', fontWeight: 800, color: '#fca5a5' }}>--</span>
+                </div>
+              </div>
+
+              {/* Top Readouts */}
+              <div className="readouts-grid">
+                <LiveReadout ref={rpmRef} label="Rotor Speed" unit="RPM" fractionDigits={0} icon="rpm" accentColor="#38bdf8" />
+                <LiveReadout ref={vibRef} label="Vibration" unit="mm/s" fractionDigits={2} icon="vibration" accentColor="#94a3b8" />
+                <LiveReadout ref={tempRef} label="Combustor Temp" unit="°C" fractionDigits={1} icon="temperature" accentColor="#818cf8" />
+              </div>
+
+              {/* Dashboard Split Views */}
+              <div className="dashboard-grid">
+
+                {/* Left Column: Schematic & Diagnostics */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                  <div style={{ height: '350px' }}>
+                    <DigitalTwinSchematic ref={schematicRef} />
+                  </div>
+                  <DiagnosticsPanel
+                    turbineId={selectedTurbine}
+                    payload={currentPayload}
+                    pdmState={fleetState[selectedTurbine]}
+                  />
+                </div>
+
+                {/* Right Column: Stacked Charts */}
+                <div className="charts-stack">
+                  <TelemetryChart ref={rpmChartRef} title="Rotor Speed" config={RPM_CONFIG} width={500} height={150} />
+                  <TelemetryChart ref={vibChartRef} title="Bearing Vibration" config={VIB_CONFIG} width={500} height={150} />
+                  <TelemetryChart ref={tempChartRef} title="Combustor Temp" config={TEMP_CONFIG} width={500} height={150} />
+                </div>
+
+              </div>
+            </>
+          )}
+
+        </div>
+      </main>
+    </div>
+  );
+}
+
+export default App;
+</file>
+
+<file path="client/src/assets/react.svg">
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" aria-hidden="true" role="img" class="iconify iconify--logos" width="35.93" height="32" preserveAspectRatio="xMidYMid meet" viewBox="0 0 256 228"><path fill="#00D8FF" d="M210.483 73.824a171.49 171.49 0 0 0-8.24-2.597c.465-1.9.893-3.777 1.273-5.621c6.238-30.281 2.16-54.676-11.769-62.708c-13.355-7.7-35.196.329-57.254 19.526a171.23 171.23 0 0 0-6.375 5.848a155.866 155.866 0 0 0-4.241-3.917C100.759 3.829 77.587-4.822 63.673 3.233C50.33 10.957 46.379 33.89 51.995 62.588a170.974 170.974 0 0 0 1.892 8.48c-3.28.932-6.445 1.924-9.474 2.98C17.309 83.498 0 98.307 0 113.668c0 15.865 18.582 31.778 46.812 41.427a145.52 145.52 0 0 0 6.921 2.165a167.467 167.467 0 0 0-2.01 9.138c-5.354 28.2-1.173 50.591 12.134 58.266c13.744 7.926 36.812-.22 59.273-19.855a145.567 145.567 0 0 0 5.342-4.923a168.064 168.064 0 0 0 6.92 6.314c21.758 18.722 43.246 26.282 56.54 18.586c13.731-7.949 18.194-32.003 12.4-61.268a145.016 145.016 0 0 0-1.535-6.842c1.62-.48 3.21-.974 4.76-1.488c29.348-9.723 48.443-25.443 48.443-41.52c0-15.417-17.868-30.326-45.517-39.844Zm-6.365 70.984c-1.4.463-2.836.91-4.3 1.345c-3.24-10.257-7.612-21.163-12.963-32.432c5.106-11 9.31-21.767 12.459-31.957c2.619.758 5.16 1.557 7.61 2.4c23.69 8.156 38.14 20.213 38.14 29.504c0 9.896-15.606 22.743-40.946 31.14Zm-10.514 20.834c2.562 12.94 2.927 24.64 1.23 33.787c-1.524 8.219-4.59 13.698-8.382 15.893c-8.067 4.67-25.32-1.4-43.927-17.412a156.726 156.726 0 0 1-6.437-5.87c7.214-7.889 14.423-17.06 21.459-27.246c12.376-1.098 24.068-2.894 34.671-5.345a134.17 134.17 0 0 1 1.386 6.193ZM87.276 214.515c-7.882 2.783-14.16 2.863-17.955.675c-8.075-4.657-11.432-22.636-6.853-46.752a156.923 156.923 0 0 1 1.869-8.499c10.486 2.32 22.093 3.988 34.498 4.994c7.084 9.967 14.501 19.128 21.976 27.15a134.668 134.668 0 0 1-4.877 4.492c-9.933 8.682-19.886 14.842-28.658 17.94ZM50.35 144.747c-12.483-4.267-22.792-9.812-29.858-15.863c-6.35-5.437-9.555-10.836-9.555-15.216c0-9.322 13.897-21.212 37.076-29.293c2.813-.98 5.757-1.905 8.812-2.773c3.204 10.42 7.406 21.315 12.477 32.332c-5.137 11.18-9.399 22.249-12.634 32.792a134.718 134.718 0 0 1-6.318-1.979Zm12.378-84.26c-4.811-24.587-1.616-43.134 6.425-47.789c8.564-4.958 27.502 2.111 47.463 19.835a144.318 144.318 0 0 1 3.841 3.545c-7.438 7.987-14.787 17.08-21.808 26.988c-12.04 1.116-23.565 2.908-34.161 5.309a160.342 160.342 0 0 1-1.76-7.887Zm110.427 27.268a347.8 347.8 0 0 0-7.785-12.803c8.168 1.033 15.994 2.404 23.343 4.08c-2.206 7.072-4.956 14.465-8.193 22.045a381.151 381.151 0 0 0-7.365-13.322Zm-45.032-43.861c5.044 5.465 10.096 11.566 15.065 18.186a322.04 322.04 0 0 0-30.257-.006c4.974-6.559 10.069-12.652 15.192-18.18ZM82.802 87.83a323.167 323.167 0 0 0-7.227 13.238c-3.184-7.553-5.909-14.98-8.134-22.152c7.304-1.634 15.093-2.97 23.209-3.984a321.524 321.524 0 0 0-7.848 12.897Zm8.081 65.352c-8.385-.936-16.291-2.203-23.593-3.793c2.26-7.3 5.045-14.885 8.298-22.6a321.187 321.187 0 0 0 7.257 13.246c2.594 4.48 5.28 8.868 8.038 13.147Zm37.542 31.03c-5.184-5.592-10.354-11.779-15.403-18.433c4.902.192 9.899.29 14.978.29c5.218 0 10.376-.117 15.453-.343c-4.985 6.774-10.018 12.97-15.028 18.486Zm52.198-57.817c3.422 7.8 6.306 15.345 8.596 22.52c-7.422 1.694-15.436 3.058-23.88 4.071a382.417 382.417 0 0 0 7.859-13.026a347.403 347.403 0 0 0 7.425-13.565Zm-16.898 8.101a358.557 358.557 0 0 1-12.281 19.815a329.4 329.4 0 0 1-23.444.823c-7.967 0-15.716-.248-23.178-.732a310.202 310.202 0 0 1-12.513-19.846h.001a307.41 307.41 0 0 1-10.923-20.627a310.278 310.278 0 0 1 10.89-20.637l-.001.001a307.318 307.318 0 0 1 12.413-19.761c7.613-.576 15.42-.876 23.31-.876H128c7.926 0 15.743.303 23.354.883a329.357 329.357 0 0 1 12.335 19.695a358.489 358.489 0 0 1 11.036 20.54a329.472 329.472 0 0 1-11 20.722Zm22.56-122.124c8.572 4.944 11.906 24.881 6.52 51.026c-.344 1.668-.73 3.367-1.15 5.09c-10.622-2.452-22.155-4.275-34.23-5.408c-7.034-10.017-14.323-19.124-21.64-27.008a160.789 160.789 0 0 1 5.888-5.4c18.9-16.447 36.564-22.941 44.612-18.3ZM128 90.808c12.625 0 22.86 10.235 22.86 22.86s-10.235 22.86-22.86 22.86s-22.86-10.235-22.86-22.86s10.235-22.86 22.86-22.86Z"></path></svg>
+</file>
+
+<file path="client/src/components/DigitalTwinSchematic.tsx">
+import { forwardRef, useImperativeHandle, useRef } from 'react';
+
+// ─── Types ───────────────────────────────────────────────────
+
+export type TwinNodeState = 'nominal' | 'warning' | 'critical' | 'failure';
+
+export interface TwinNodeLimits {
+    min: number;
+    max: number;
+    warning: number;
+    critical: number;
+}
+
+export interface DigitalTwinSchematicHandle {
+    updateBearingState: (state: TwinNodeState) => void;
+    updateRpmValue: (val: number) => void;
+    updateVibValue: (val: number) => void;
+    updateTempValue: (val: number) => void;
+}
+
+// ─── Constants ───────────────────────────────────────────────
+
+const NODE_COLORS: Record<TwinNodeState, { bg: string; border: string; text: string }> = {
+    nominal: { bg: '#0f172a', border: '#334155', text: '#94a3b8' },
+    warning: { bg: '#451a03', border: '#f59e0b', text: '#f59e0b' },
+    critical: { bg: '#450a0a', border: '#ef4444', text: '#ef4444' },
+    failure: { bg: '#7f1d1d', border: '#dc2626', text: '#fca5a5' },
+};
+
+const RPM_LIMITS: TwinNodeLimits = { min: 3400, max: 3900, warning: 3700, critical: 3800 };
+const VIB_LIMITS: TwinNodeLimits = { min: 0, max: 15, warning: 7.0, critical: 12.0 };
+const TEMP_LIMITS: TwinNodeLimits = { min: 860, max: 970, warning: 940, critical: 955 };
+
+// ─── Helpers ─────────────────────────────────────────────────
+
+function getFillPercent(val: number, limits: TwinNodeLimits): number {
+    const clamped = Math.max(limits.min, Math.min(val, limits.max));
+    return ((clamped - limits.min) / (limits.max - limits.min)) * 100;
+}
+
+function getFillColor(val: number, limits: TwinNodeLimits): string {
+    if (val >= limits.critical) return '#ef4444';
+    if (val >= limits.warning) return '#f59e0b';
+    return '#475569';
+}
+
+// ─── Bullet Graph Sub-Component (inline element) ─────────────
+
+interface BulletRefs {
+    textRef: React.RefObject<HTMLSpanElement | null>;
+    fillRef: React.RefObject<HTMLDivElement | null>;
+}
+
+function BulletGraph({ label, unit, limits, refs }: {
+    label: string;
+    unit: string;
+    limits: TwinNodeLimits;
+    refs: BulletRefs;
+}): React.ReactElement {
+    // Calculate warning/critical marker positions
+    const warnPct = ((limits.warning - limits.min) / (limits.max - limits.min)) * 100;
+    const critPct = ((limits.critical - limits.min) / (limits.max - limits.min)) * 100;
+
+    return (
+        <div style={{ width: '100%', padding: '0 4px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '3px' }}>
+                <span className="twin-node-label" style={{ margin: 0 }}>{label}</span>
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: '3px' }}>
+                    <span ref={refs.textRef} className="twin-node-value tabular-data" style={{ fontSize: '13px' }}>--</span>
+                    <span className="twin-node-unit" style={{ margin: 0 }}>{unit}</span>
+                </div>
+            </div>
+            {/* Bullet Track */}
+            <div style={{
+                position: 'relative',
+                width: '100%',
+                height: '6px',
+                background: '#1e293b',
+                borderRadius: '3px',
+                overflow: 'visible',
+            }}>
+                {/* Fill Bar */}
+                <div
+                    ref={refs.fillRef}
+                    style={{
+                        position: 'absolute',
+                        left: 0,
+                        top: 0,
+                        height: '100%',
+                        width: '0%',
+                        background: '#475569',
+                        borderRadius: '3px',
+                        transition: 'background-color 0.3s ease',
+                    }}
+                />
+                {/* Warning marker */}
+                <div style={{
+                    position: 'absolute',
+                    left: `${warnPct}%`,
+                    top: '-1px',
+                    width: '1px',
+                    height: '8px',
+                    background: '#f59e0b',
+                    opacity: 0.6,
+                }} />
+                {/* Critical marker */}
+                <div style={{
+                    position: 'absolute',
+                    left: `${critPct}%`,
+                    top: '-1px',
+                    width: '1px',
+                    height: '8px',
+                    background: '#ef4444',
+                    opacity: 0.6,
+                }} />
+            </div>
+        </div>
+    );
+}
+
+// ─── Main Component ──────────────────────────────────────────
+
+export const DigitalTwinSchematic = forwardRef<DigitalTwinSchematicHandle>(
+    (_props, ref) => {
+        const bearingNodeRef = useRef<HTMLDivElement>(null);
+        const bearingStatusRef = useRef<HTMLSpanElement>(null);
+
+        // Bullet graph refs
+        const rpmTextRef = useRef<HTMLSpanElement>(null);
+        const rpmFillRef = useRef<HTMLDivElement>(null);
+        const vibTextRef = useRef<HTMLSpanElement>(null);
+        const vibFillRef = useRef<HTMLDivElement>(null);
+        const tempTextRef = useRef<HTMLSpanElement>(null);
+        const tempFillRef = useRef<HTMLDivElement>(null);
+
+        // Combustor node ref for thermal runaway coloring
+        const combustorNodeRef = useRef<HTMLDivElement>(null);
+
+        useImperativeHandle(ref, () => ({
+            updateBearingState: (state: TwinNodeState) => {
+                const colors = NODE_COLORS[state];
+                if (bearingNodeRef.current) {
+                    bearingNodeRef.current.style.backgroundColor = colors.bg;
+                    bearingNodeRef.current.style.borderColor = colors.border;
+                    bearingNodeRef.current.style.boxShadow = state === 'nominal'
+                        ? 'none'
+                        : `0 0 20px ${colors.border}40, inset 0 0 20px ${colors.border}10`;
+                    bearingNodeRef.current.classList.toggle('fault-pulse', state === 'failure');
+                }
+                if (bearingStatusRef.current) {
+                    bearingStatusRef.current.innerText = state.toUpperCase();
+                    bearingStatusRef.current.style.color = colors.text;
+                }
+            },
+
+            updateRpmValue: (val: number) => {
+                if (rpmTextRef.current) rpmTextRef.current.innerText = val.toFixed(0);
+                if (rpmFillRef.current) {
+                    rpmFillRef.current.style.width = `${getFillPercent(val, RPM_LIMITS)}%`;
+                    rpmFillRef.current.style.backgroundColor = getFillColor(val, RPM_LIMITS);
+                }
+            },
+
+            updateVibValue: (val: number) => {
+                const absVal = Math.abs(val);
+                if (vibTextRef.current) vibTextRef.current.innerText = absVal.toFixed(2);
+                if (vibFillRef.current) {
+                    vibFillRef.current.style.width = `${getFillPercent(absVal, VIB_LIMITS)}%`;
+                    vibFillRef.current.style.backgroundColor = getFillColor(absVal, VIB_LIMITS);
+                }
+            },
+
+            updateTempValue: (val: number) => {
+                if (tempTextRef.current) tempTextRef.current.innerText = val.toFixed(1);
+                if (tempFillRef.current) {
+                    tempFillRef.current.style.width = `${getFillPercent(val, TEMP_LIMITS)}%`;
+                    tempFillRef.current.style.backgroundColor = getFillColor(val, TEMP_LIMITS);
+                }
+                // Also color the combustor node border if temp exceeds thresholds
+                if (combustorNodeRef.current) {
+                    if (val >= TEMP_LIMITS.critical) {
+                        combustorNodeRef.current.style.borderColor = '#ef4444';
+                        combustorNodeRef.current.style.boxShadow = '0 0 20px #ef444440';
+                    } else if (val >= TEMP_LIMITS.warning) {
+                        combustorNodeRef.current.style.borderColor = '#f59e0b';
+                        combustorNodeRef.current.style.boxShadow = '0 0 20px #f59e0b40';
+                    } else {
+                        combustorNodeRef.current.style.borderColor = '#334155';
+                        combustorNodeRef.current.style.boxShadow = 'none';
+                    }
+                }
+            },
+        }));
+
+        return (
+            <div className="twin-container">
+                {/* Header */}
+                <div className="hmi-panel-header">
+                    <span className="hmi-panel-title">System Overview — Gas Turbine</span>
+                </div>
+
+                {/* Schematic Body */}
+                <div style={{ padding: '24px 20px', flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: '20px' }}>
+
+                    {/* Main Flow Diagram */}
+                    <div style={{ display: 'flex', alignItems: 'stretch', justifyContent: 'center', gap: '8px' }}>
+
+                        {/* Intake */}
+                        <div className="twin-node" style={{ width: '64px', borderRadius: '8px 0 0 8px', borderRight: 'none', justifyContent: 'center' }}>
+                            <span className="twin-node-label">Intake</span>
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" style={{ color: '#475569' }}>
+                                <path d="M5 12h14M12 5l7 7-7 7" strokeLinecap="round" strokeLinejoin="round" />
+                            </svg>
+                        </div>
+
+                        {/* Compressor */}
+                        <div className="twin-node" style={{ width: '150px', borderRadius: '0', borderRight: 'none', padding: '16px 14px' }}>
+                            <BulletGraph
+                                label="Compressor"
+                                unit="RPM"
+                                limits={RPM_LIMITS}
+                                refs={{ textRef: rpmTextRef, fillRef: rpmFillRef }}
+                            />
+                        </div>
+
+                        {/* Combustor */}
+                        <div
+                            ref={combustorNodeRef}
+                            className="twin-node"
+                            style={{ width: '150px', borderRadius: '0', borderRight: 'none', padding: '16px 14px', transition: 'border-color 0.5s ease, box-shadow 0.5s ease' }}
+                        >
+                            <BulletGraph
+                                label="Combustor"
+                                unit="°C"
+                                limits={TEMP_LIMITS}
+                                refs={{ textRef: tempTextRef, fillRef: tempFillRef }}
+                            />
+                        </div>
+
+                        {/* Turbine / Bearing */}
+                        <div
+                            ref={bearingNodeRef}
+                            className="twin-node"
+                            style={{
+                                width: '150px',
+                                borderRadius: '0',
+                                borderRight: 'none',
+                                padding: '16px 14px',
+                                backgroundColor: NODE_COLORS.nominal.bg,
+                                borderColor: NODE_COLORS.nominal.border,
+                            }}
+                        >
+                            <BulletGraph
+                                label="Turbine"
+                                unit="mm/s"
+                                limits={VIB_LIMITS}
+                                refs={{ textRef: vibTextRef, fillRef: vibFillRef }}
+                            />
+                            <span
+                                ref={bearingStatusRef}
+                                className="twin-node-status"
+                                style={{ color: NODE_COLORS.nominal.text, marginTop: '4px' }}
+                            >
+                                NOMINAL
+                            </span>
+                        </div>
+
+                        {/* Exhaust */}
+                        <div className="twin-node" style={{ width: '64px', borderRadius: '0 8px 8px 0', justifyContent: 'center' }}>
+                            <span className="twin-node-label">Exhaust</span>
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" style={{ color: '#475569' }}>
+                                <path d="M5 12h14M12 5l7 7-7 7" strokeLinecap="round" strokeLinejoin="round" />
+                            </svg>
+                        </div>
+                    </div>
+
+                    {/* Shaft Line */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '0 4px' }}>
+                        <div style={{ flex: 1, height: '1px', background: 'linear-gradient(90deg, transparent, #334155)' }}></div>
+                        <span style={{ fontSize: '10px', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase' as const, color: '#64748b' }}>
+                            Drive Shaft
+                        </span>
+                        <div style={{ flex: 1, height: '1px', background: 'linear-gradient(90deg, #334155, transparent)' }}></div>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+);
+
+DigitalTwinSchematic.displayName = 'DigitalTwinSchematic';
+</file>
+
+<file path="client/src/components/LiveReadout.tsx">
+import React, { forwardRef, useImperativeHandle, useRef } from 'react';
+
+export interface LiveReadoutHandle {
+    updateValue: (val: number | string) => void;
+}
+
+interface LiveReadoutProps {
+    label: string;
+    unit: string;
+    fractionDigits?: number;
+    accentColor?: string;
+    icon?: 'rpm' | 'vibration' | 'temperature';
+}
+
+const icons: Record<string, React.ReactElement> = {
+    rpm: (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="12" r="10" />
+            <path d="M12 6v6l4 2" />
+        </svg>
+    ),
+    vibration: (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M2 12h2l3-7 4 14 4-14 3 7h4" />
+        </svg>
+    ),
+    temperature: (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M14 14.76V3.5a2.5 2.5 0 0 0-5 0v11.26a4.5 4.5 0 1 0 5 0Z" />
+        </svg>
+    ),
+};
+
+export const LiveReadout = forwardRef<LiveReadoutHandle, LiveReadoutProps>(
+    ({ label, unit, fractionDigits = 2, accentColor = '#38bdf8', icon = 'rpm' }, ref) => {
+        const valueRef = useRef<HTMLSpanElement>(null);
+
+        useImperativeHandle(ref, () => ({
+            updateValue: (val: number | string) => {
+                if (valueRef.current) {
+                    valueRef.current.innerText = typeof val === 'number'
+                        ? val.toFixed(fractionDigits)
+                        : val;
+                }
+            },
+        }));
+
+        return (
+            <div
+                className="readout-card"
+                style={{ '--accent-color': accentColor } as React.CSSProperties}
+            >
+                <div className="readout-icon">
+                    {icons[icon]}
+                </div>
+                <div className="readout-info">
+                    <div className="readout-label">{label}</div>
+                    <div className="readout-value-row">
+                        <span ref={valueRef} className="readout-value tabular-data">
+                            ---
+                        </span>
+                        <span className="readout-unit">{unit}</span>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+);
+
+LiveReadout.displayName = 'LiveReadout';
+</file>
+
+<file path="client/src/components/TelemetryChart.tsx">
+import { useEffect, useRef, useImperativeHandle, forwardRef } from 'react';
+import uPlot, { type AlignedData } from 'uplot';
+import 'uplot/dist/uPlot.min.css';
+
+export interface ChartConfig {
+    label: string;
+    stroke: string;
+    secondaryStroke?: string;
+    yMin?: number;
+    yMax?: number;
+    warningLimit?: number;
+    criticalLimit?: number;
+}
+
+export interface TelemetryChartHandle {
+    updateData: (data: AlignedData) => void;
+}
+
+interface TelemetryChartProps {
+    title: string;
+    config: ChartConfig;
+    width?: number;
+    height?: number;
+}
+
+export const TelemetryChart = forwardRef<TelemetryChartHandle, TelemetryChartProps>(
+    ({ title, config, width = 540, height = 160 }, ref) => {
+        const containerRef = useRef<HTMLDivElement>(null);
+        const plotRef = useRef<uPlot | null>(null);
+
+        useImperativeHandle(ref, () => ({
+            updateData: (data: AlignedData) => {
+                if (plotRef.current) {
+                    plotRef.current.setData(data);
+                }
+            },
+        }));
+
+        useEffect(() => {
+            if (!containerRef.current) return;
+
+            // Build limit-line drawing hook
+            const drawLimitLines: (u: uPlot) => void = (u: uPlot) => {
+                const { ctx, bbox, scales } = u;
+                const { left, width: w } = bbox;
+                const yAxis = u.axes[1];
+
+                // Helper: convert Y value to canvas pixel
+                const valToPos = (val: number): number | null => {
+                    const scale = scales[yAxis.scale ?? 'y'];
+                    if (!scale || scale.min == null || scale.max == null) return null;
+                    if (val < scale.min || val > scale.max) return null;
+                    return u.valToPos(val, yAxis.scale ?? 'y', true);
+                };
+
+                ctx.save();
+
+                // Warning limit — yellow dashed
+                if (config.warningLimit !== undefined) {
+                    const yPx = valToPos(config.warningLimit);
+                    if (yPx !== null) {
+                        ctx.strokeStyle = '#f59e0b';
+                        ctx.lineWidth = 1;
+                        ctx.setLineDash([6, 4]);
+                        ctx.beginPath();
+                        ctx.moveTo(left, yPx);
+                        ctx.lineTo(left + w, yPx);
+                        ctx.stroke();
+                    }
+                }
+
+                // Critical limit — red solid
+                if (config.criticalLimit !== undefined) {
+                    const yPx = valToPos(config.criticalLimit);
+                    if (yPx !== null) {
+                        ctx.strokeStyle = '#ef4444';
+                        ctx.lineWidth = 1.5;
+                        ctx.setLineDash([]);
+                        ctx.beginPath();
+                        ctx.moveTo(left, yPx);
+                        ctx.lineTo(left + w, yPx);
+                        ctx.stroke();
+                    }
+                }
+
+                ctx.restore();
+            };
+
+            const opts: uPlot.Options = {
+                width: width,
+                height: height,
+                cursor: { show: false },
+                legend: { show: false },
+                padding: [8, 8, 0, 0],
+                hooks: {
+                    drawAxes: [drawLimitLines],
+                },
+                axes: [
+                    {
+                        stroke: '#475569',
+                        grid: { stroke: '#1e293b', width: 1 },
+                        ticks: { stroke: '#334155', width: 1, size: 4 },
+                        font: '10px "JetBrains Mono", monospace',
+                        gap: 4,
+                    },
+                    {
+                        stroke: '#475569',
+                        grid: { stroke: '#1e293b', width: 1 },
+                        ticks: { stroke: '#334155', width: 1, size: 4 },
+                        font: '10px "JetBrains Mono", monospace',
+                        gap: 4,
+                        size: 50,
+                        ...(config.yMin !== undefined && { min: config.yMin }),
+                        ...(config.yMax !== undefined && { max: config.yMax }),
+                    },
+                ],
+                series: [
+                    {},
+                    {
+                        label: config.label,
+                        stroke: config.stroke,
+                        width: 1.5,
+                        fill: config.stroke + '10',
+                    },
+                    ...(config.secondaryStroke ? [{
+                        stroke: config.secondaryStroke,
+                        width: 2,
+                        dash: [5, 5]
+                    }] : []),
+                ],
+            };
+
+            const plot = new uPlot(opts, [[], []], containerRef.current);
+            plotRef.current = plot;
+
+            return () => {
+                plot.destroy();
+                plotRef.current = null;
+            };
+        }, [title, config, width, height]);
+
+        return (
+            <div className="chart-panel">
+                <div className="chart-panel-header">
+                    <div className="chart-dot" style={{ background: config.stroke }}></div>
+                    <span className="chart-label">{title}</span>
+                    <div style={{ marginLeft: 'auto', display: 'flex', gap: '12px', alignItems: 'center' }}>
+                        {config.warningLimit !== undefined && (
+                            <span style={{ fontSize: '9px', fontWeight: 600, color: '#f59e0b', letterSpacing: '0.05em' }}>
+                                ⚠ {config.warningLimit}
+                            </span>
+                        )}
+                        {config.criticalLimit !== undefined && (
+                            <span style={{ fontSize: '9px', fontWeight: 600, color: '#ef4444', letterSpacing: '0.05em' }}>
+                                ✕ {config.criticalLimit}
+                            </span>
+                        )}
+                    </div>
+                </div>
+                <div className="chart-body">
+                    <div ref={containerRef} />
+                </div>
+            </div>
+        );
+    }
+);
+
+TelemetryChart.displayName = 'TelemetryChart';
+</file>
+
+<file path="client/src/index.css">
+@import "tailwindcss";
+
+/* ═══════════════════════════════════════════════════════════════
+   ISA-101 Industrial HMI Design System
+   ═══════════════════════════════════════════════════════════════ */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+
+:root {
+  /* ─── Core Palette (ISA-101 Dark Slate) ─── */
+  --hmi-bg-deep: #0f172a;
+  --hmi-bg: #1e293b;
+  --hmi-bg-card: #1e293b;
+  --hmi-bg-elevated: #283548;
+  --hmi-border: #334155;
+  --hmi-border-subtle: #1e293b;
+
+  /* ─── Text ─── */
+  --hmi-text-primary: #f1f5f9;
+  --hmi-text-secondary: #94a3b8;
+  --hmi-text-muted: #64748b;
+  --hmi-text-dim: #475569;
+
+  /* ─── Accent (Nominal - Cool Blue) ─── */
+  --hmi-accent: #38bdf8;
+  --hmi-accent-dim: #0c4a6e;
+  --hmi-accent-glow: rgba(56, 189, 248, 0.15);
+
+  /* ─── Alarm Colors (ISA-101 Reserved) ─── */
+  --hmi-alarm-warning: #f59e0b;
+  --hmi-alarm-critical: #ef4444;
+  --hmi-alarm-bg: rgba(127, 29, 29, 0.6);
+
+  /* ─── Chart Colors (Monochromatic) ─── */
+  --hmi-chart-rpm: #38bdf8;
+  --hmi-chart-vib: #94a3b8;
+  --hmi-chart-temp: #818cf8;
+  --hmi-chart-grid: #1e293b;
+  --hmi-chart-axis: #475569;
+
+  /* ─── Spacing ─── */
+  --hmi-radius: 8px;
+  --hmi-radius-lg: 12px;
+}
+
+/* ─── Global Reset & Base ──────────────────────────────────── */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  background: var(--hmi-bg-deep);
+  color: var(--hmi-text-primary);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+  min-height: 100vh;
+}
+
+#root {
+  max-width: none;
+  margin: 0;
+  padding: 0;
+  text-align: left;
+}
+
+/* ─── Application Dashboard Layout ───────────────────────────── */
+
+.app-layout {
+  display: flex;
+  min-height: 100vh;
+  width: 100vw;
+  overflow: hidden;
+}
+
+/* ─── Left-Hand Sidebar Navigation ─────────────────────────── */
+
+.sidebar {
+  width: 240px;
+  background: var(--hmi-bg-card);
+  border-right: 1px solid var(--hmi-border);
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+}
+
+.sidebar-header {
+  padding: 24px 20px;
+  border-bottom: 1px solid var(--hmi-border);
+}
+
+.sidebar-title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--hmi-text-primary);
+  letter-spacing: -0.02em;
+}
+
+.sidebar-subtitle {
+  margin: 4px 0 0;
+  font-size: 11px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--hmi-text-muted);
+}
+
+.sidebar-nav {
+  flex: 1;
+  padding: 16px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  overflow-y: auto;
+}
+
+.sidebar-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  border-radius: var(--hmi-radius);
+  cursor: pointer;
+  background: transparent;
+  border: 1px solid transparent;
+  transition: all 0.2s ease;
+  user-select: none;
+}
+
+.sidebar-item:hover {
+  background: var(--hmi-bg-elevated);
+}
+
+.sidebar-item.active {
+  background: var(--hmi-bg-elevated);
+  border-color: var(--hmi-border);
+}
+
+.sidebar-item-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--hmi-text-secondary);
+  flex: 1;
+}
+
+.sidebar-item.active .sidebar-item-label {
+  color: var(--hmi-text-primary);
+}
+
+/* Standard Status Dot */
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--hmi-text-dim);
+  box-shadow: 0 0 0 0 rgba(0, 0, 0, 0);
+  transition: all 0.3s ease;
+}
+
+/* Alarm Status Dot */
+.status-dot.alarm {
+  background: var(--hmi-alarm-critical);
+  box-shadow: 0 0 8px var(--hmi-alarm-critical);
+}
+
+/* Nominal Status Dot */
+.status-dot.nominal {
+  background: #10b981;
+  box-shadow: 0 0 4px rgba(16, 185, 129, 0.4);
+}
+
+/* ─── Main Content Container ───────────────────────────────── */
+
+.main-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
+  position: relative;
+}
+
+.main-scroll {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px 32px;
+}
+
+/* ─── Header Elements ──────────────────────────────────────── */
+
+.hmi-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 0 24px 0;
+  border-bottom: 2px solid var(--hmi-border);
+  margin-bottom: 24px;
+}
+
+.hmi-btn {
+  background: var(--hmi-bg-elevated);
+  border: 1px solid var(--hmi-border);
+  color: var(--hmi-text-secondary);
+  font-family: 'Inter', sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  padding: 8px 16px;
+  border-radius: var(--hmi-radius);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  outline: none;
+}
+
+.hmi-btn:hover {
+  background: var(--hmi-border);
+  color: var(--hmi-text-primary);
+  border-color: var(--hmi-text-dim);
+}
+
+.hmi-btn:active {
+  transform: scale(0.98);
+}
+
+/* ─── Live Indicator ───────────────────────────────────────── */
+
+.live-indicator {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.live-dot {
+  position: relative;
+  width: 8px;
+  height: 8px;
+}
+
+.live-dot::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: var(--hmi-accent);
+  animation: live-pulse 2s ease-in-out infinite;
+}
+
+.live-dot::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: var(--hmi-accent);
+}
+
+@keyframes live-pulse {
+
+  0%,
+  100% {
+    opacity: 0;
+    transform: scale(1);
+  }
+
+  50% {
+    opacity: 0.6;
+    transform: scale(2.5);
+  }
+}
+
+.live-text {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--hmi-text-muted);
+}
+
+/* ─── Fault Pulse Animation ────────────────────────────────── */
+
+@keyframes fault-pulse {
+
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.fault-pulse {
+  animation: fault-pulse 1s ease-in-out infinite;
+}
+
+/* ─── Warning Banner ───────────────────────────────────────── */
+
+.warning-banner {
+  background: var(--hmi-alarm-bg);
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  border-left: 4px solid var(--hmi-alarm-critical);
+  border-radius: var(--hmi-radius-lg);
+  padding: 16px 20px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  backdrop-filter: blur(8px);
+  margin-bottom: 24px;
+}
+
+/* ─── Metric & Structural Grids ─────────────────────────────── */
+
+.dashboard-grid {
+  display: grid;
+  gap: 24px;
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 1280px) {
+  .dashboard-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.charts-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.readouts-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+@media (max-width: 1024px) {
+  .readouts-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+
+/* ─── Tabular Numeric Display ──────────────────────────────── */
+
+.tabular-data {
+  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+
+/* ─── Panel / Card System ──────────────────────────────────── */
+
+.hmi-panel {
+  background: var(--hmi-bg-card);
+  border: 1px solid var(--hmi-border);
+  border-radius: var(--hmi-radius-lg);
+  overflow: hidden;
+}
+
+.hmi-panel-header {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--hmi-border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.hmi-panel-title {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--hmi-text-muted);
+}
+
+.hmi-panel-body {
+  padding: 16px;
+}
+
+/* ─── Readout Card ─────────────────────────────────────────── */
+
+.readout-card {
+  background: var(--hmi-bg-card);
+  border: 1px solid var(--hmi-border);
+  border-radius: var(--hmi-radius-lg);
+  padding: 16px 20px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  position: relative;
+  overflow: hidden;
+  transition: border-color 0.3s ease;
+}
+
+.readout-card::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: var(--accent-color, var(--hmi-accent));
+  opacity: 0.6;
+}
+
+.readout-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: var(--hmi-bg-deep);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.readout-icon svg {
+  width: 20px;
+  height: 20px;
+  color: var(--accent-color, var(--hmi-accent));
+}
+
+.readout-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.readout-label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--hmi-text-muted);
+  margin-bottom: 2px;
+}
+
+.readout-value-row {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.readout-value {
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 1.1;
+  color: var(--hmi-text-primary);
+}
+
+.readout-unit {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--hmi-text-dim);
+}
+
+/* ─── Chart Panel ──────────────────────────────────────────── */
+
+.chart-panel {
+  background: var(--hmi-bg-card);
+  border: 1px solid var(--hmi-border);
+  border-radius: var(--hmi-radius-lg);
+  overflow: hidden;
+}
+
+.chart-panel-header {
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--hmi-border);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.chart-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.chart-label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--hmi-text-muted);
+}
+
+.chart-body {
+  padding: 4px 8px 8px;
+  display: flex;
+  justify-content: center;
+}
+
+/* ─── uPlot Overrides ──────────────────────────────────────── */
+
+.uplot {
+  font-family: 'Inter', sans-serif !important;
+}
+
+.u-title {
+  display: none !important;
+}
+
+.u-legend {
+  display: none !important;
+}
+
+.u-wrap {
+  border-radius: 4px;
+}
+
+
+/* ─── Digital Twin Schematic ───────────────────────────────── */
+
+.twin-container {
+  background: var(--hmi-bg-card);
+  border: 1px solid var(--hmi-border);
+  border-radius: var(--hmi-radius-lg);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.twin-node {
+  border: 1.5px solid var(--hmi-border);
+  border-radius: var(--hmi-radius);
+  background: var(--hmi-bg-deep);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 8px;
+  transition: all 0.5s ease;
+  position: relative;
+}
+
+.twin-node-label {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--hmi-text-dim);
+  margin-bottom: 4px;
+}
+
+.twin-node-value {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--hmi-text-primary);
+  line-height: 1.2;
+}
+
+.twin-node-unit {
+  font-size: 9px;
+  color: var(--hmi-text-dim);
+  margin-top: 1px;
+}
+
+.twin-node-status {
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  margin-top: 4px;
+}
+
+.twin-connector {
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--hmi-border), transparent);
+  flex: 1;
+  min-width: 8px;
+}
+
+.twin-connector-vertical {
+  width: 2px;
+  height: 12px;
+  background: var(--hmi-border);
+}
+
+/* ─── Flow Arrow ───────────────────────────────────────────── */
+.flow-arrow {
+  color: var(--hmi-text-dim);
+  font-size: 14px;
+  padding: 0 2px;
+}
+</file>
+
+<file path="client/src/main.tsx">
+import { StrictMode } from 'react'
+import { createRoot } from 'react-dom/client'
+import './index.css'
+import App from './App.tsx'
+
+createRoot(document.getElementById('root')!).render(
+  <StrictMode>
+    <App />
+  </StrictMode>,
+)
+</file>
+
+<file path="client/src/types/telemetry.ts">
+export interface TelemetryPayload {
+    id: string;
+    t: number;
+    r: number;
+    v: number;
+    c: number;
+}
+
+export interface PdMState {
+    smoothedVibration: number;
+    degradationSlope: number;
+    estimatedRUL: number;
+    smoothedTemperature: number;
+    temperatureStatus: 'nominal' | 'warning' | 'critical';
+}
+
+// Multi-Turbine State 
+export type FleetPdMState = Record<string, PdMState>;
+</file>
+
+<file path="client/src/utils/pdmMath.ts">
+/**
+ * Computes the Exponential Moving Average (EMA).
+ * @param current The current raw value.
+ * @param previous The previous EMA value.
+ * @param smoothingFactor The smoothing coefficient (alpha), e.g., 0.1 for vibration.
+ * @returns The new EMA value.
+ */
+export function calculateEMA(current: number, previous: number | null, smoothingFactor: number = 0.1): number {
+    if (previous === null) return current;
+    return (current * smoothingFactor) + (previous * (1 - smoothingFactor));
+}
+
+/**
+ * Calculates the Least-Squares Linear Regression slope for a given set of timestamped values.
+ * @param dataPoints Array of [timestamp, value] tuples.
+ * @returns The slope (m) representing the rate of change per second.
+ */
+export function calculateLinearRegression(dataPoints: [number, number][]): number {
+    const n = dataPoints.length;
+    if (n < 2) return 0;
+
+    let sumX = 0;
+    let sumY = 0;
+    let sumXY = 0;
+    let sumX2 = 0;
+
+    for (let i = 0; i < n; i++) {
+        const x = dataPoints[i][0];
+        const y = dataPoints[i][1];
+        sumX += x;
+        sumY += y;
+        sumXY += x * y;
+        sumX2 += x * x;
+    }
+
+    const xMean = sumX / n;
+    const yMean = sumY / n;
+
+    const numerator = sumXY - (n * xMean * yMean);
+    const denominator = sumX2 - (n * xMean * xMean);
+
+    if (denominator === 0) return 0;
+
+    return numerator / denominator;
+}
+
+/**
+ * Estimates the Remaining Useful Life (RUL) in seconds based on linear projection.
+ * @param currentVibration The current smoothed vibration value.
+ * @param slope The calculated rate of change per second (m).
+ * @param criticalThreshold The threshold at which the system fails (default 60).
+ * @returns Estimated RUL in seconds. Returns Infinity if decreasing or stable.
+ */
+export function calculateRUL(currentVibration: number, slope: number, criticalThreshold: number = 60.0): number {
+    // If slope is negative or zero, we aren't degrading towards the threshold
+    if (slope <= 0) return Infinity;
+
+    const remainingVibrationToThreshold = criticalThreshold - currentVibration;
+
+    // If we've already crossed the threshold, RUL is 0
+    if (remainingVibrationToThreshold <= 0) return 0;
+
+    return remainingVibrationToThreshold / slope;
+}
+</file>
+
+<file path="client/tsconfig.app.json">
+{
+  "compilerOptions": {
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.app.tsbuildinfo",
+    "target": "ES2022",
+    "useDefineForClassFields": true,
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "types": ["vite/client"],
+    "skipLibCheck": true,
+
+    /* Bundler mode */
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "verbatimModuleSyntax": true,
+    "moduleDetection": "force",
+    "noEmit": true,
+    "jsx": "react-jsx",
+
+    /* Linting */
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "erasableSyntaxOnly": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUncheckedSideEffectImports": true
+  },
+  "include": ["src"]
+}
+</file>
+
+<file path="client/tsconfig.json">
+{
+  "files": [],
+  "references": [
+    { "path": "./tsconfig.app.json" },
+    { "path": "./tsconfig.node.json" }
+  ]
+}
+</file>
+
+<file path="client/tsconfig.node.json">
+{
+  "compilerOptions": {
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.node.tsbuildinfo",
+    "target": "ES2023",
+    "lib": ["ES2023"],
+    "module": "ESNext",
+    "types": ["node"],
+    "skipLibCheck": true,
+
+    /* Bundler mode */
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "verbatimModuleSyntax": true,
+    "moduleDetection": "force",
+    "noEmit": true,
+
+    /* Linting */
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "erasableSyntaxOnly": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUncheckedSideEffectImports": true
+  },
+  "include": ["vite.config.ts"]
+}
+</file>
+
+<file path="client/vite.config.ts">
+import { defineConfig } from 'vite'
+import react from '@vitejs/plugin-react'
+
+// https://vite.dev/config/
+export default defineConfig({
+  plugins: [react()],
+})
+</file>
+
+<file path="README.md">
+# omnistream-digital-twin
+</file>
+
+<file path="server/package.json">
+{
+  "name": "server",
+  "version": "1.0.0",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "ws": "^8.19.0"
+  }
+}
+</file>
+
+<file path="server/server.js">
+const http = require('http');
+const WebSocket = require('ws');
+
+// ─── State Pre-allocation ────────────────────────────────────
+
+// Three turbines
+const fleet = [
+    { id: 'T-01', t: 0, r: 0, v: 0, c: 0 },
+    { id: 'T-02', t: 0, r: 0, v: 0, c: 0 },
+    { id: 'T-03', t: 0, r: 0, v: 0, c: 0 }
+];
+
+// Faults only apply to T-03
+let isFaultActive = false;
+let faultStartTime = 0;
+
+let isThermalRunaway = false;
+let thermalStartTime = 0;
+
+// ─── HTTP Server ─────────────────────────────────────────────
+const server = http.createServer((req, res) => {
+    if (req.method === 'POST' && req.url === '/inject-fault') {
+        isFaultActive = true;
+        faultStartTime = Date.now();
+        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        res.end(JSON.stringify({ success: true, message: 'Bearing fault active on T-03' }));
+    } else if (req.method === 'POST' && req.url === '/thermal-runaway') {
+        isThermalRunaway = true;
+        thermalStartTime = Date.now();
+        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        res.end(JSON.stringify({ success: true, message: 'Thermal runaway active on T-03' }));
+    } else if (req.method === 'POST' && req.url === '/clear-fault') {
+        isFaultActive = false;
+        faultStartTime = 0;
+        isThermalRunaway = false;
+        thermalStartTime = 0;
+        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        res.end(JSON.stringify({ success: true, message: 'All faults cleared' }));
+    } else {
+        res.writeHead(404);
+        res.end();
+    }
+});
+
+// ─── WebSocket Server ────────────────────────────────────────
+const wss = new WebSocket.Server({ server });
+
+wss.on('connection', (ws) => {
+    console.log('Client connected');
+    ws.on('close', () => console.log('Client disconnected'));
+    ws.on('message', (msg) => {
+        try {
+            const data = JSON.parse(msg);
+            if (data.type === 'INJECT_FAULT' || data.type === 'inject_fault') {
+                isFaultActive = true;
+                faultStartTime = Date.now();
+                console.log('[FAULT] Bearing fault injected on T-03');
+            } else if (data.type === 'THERMAL_RUNAWAY') {
+                isThermalRunaway = true;
+                thermalStartTime = Date.now();
+                console.log('[FAULT] Thermal runaway injected on T-03');
+            } else if (data.type === 'CLEAR_FAULT') {
+                isFaultActive = false;
+                faultStartTime = 0;
+                isThermalRunaway = false;
+                thermalStartTime = 0;
+                console.log('[FAULT] All faults cleared');
+            }
+        } catch (e) {
+            // ignore non-JSON messages
+        }
+    });
+});
+
+// ─── Signal Generation ───────────────────────────────────────
+let tick = 0;
+
+function mutateFleet() {
+    tick += 1;
+    const now = Date.now();
+
+    for (let i = 0; i < fleet.length; i++) {
+        const payload = fleet[i];
+        payload.t = now;
+
+        // Distinct phase offset per turbine
+        const phaseOffset = i * 1000;
+
+        // r (RPM): Base 3600 + low-frequency sine wave + slight noise
+        payload.r = 3600 + Math.sin((tick + phaseOffset) / 500) * 50 + (Math.random() - 0.5) * 5;
+
+        // c (Combustor Temperature): Nominal 900°C ± 10°C slow drift
+        let cBase = 900 + Math.sin((tick + phaseOffset) / 1000) * 10 + (Math.random() - 0.5) * 1.0;
+
+        // v (Vibration): Nominal ±1.5 mm/s amplitude
+        let vAmp = 1.5;
+        let vNoise = 1.0;
+
+        // Fault logic applied ONLY to T-03
+        if (payload.id === 'T-03') {
+            if (isThermalRunaway) {
+                // Gradually raise from 900 → 960°C over 120 seconds
+                const elapsed = now - thermalStartTime;
+                const progress = Math.min(elapsed / 120000, 1.0); // 0→1 over 120s
+                cBase += 60 * progress; // +60°C at full progression
+                // Add increasing noise as thermal instability grows
+                cBase += (Math.random() - 0.5) * 3.0 * progress;
+            }
+
+            if (isFaultActive) {
+                // Bearing degradation over 60s
+                const elapsed = now - faultStartTime;
+                const progress = Math.min(elapsed / 60000, 1.0); // 0→1 over 60s
+                vAmp = 1.5 + (13.5 * progress);    // → 15.0
+                vNoise = 1.0 + (5.0 * progress);   // → 6.0
+            }
+        }
+
+        payload.c = cBase;
+        payload.v = Math.sin((tick + phaseOffset) / 10) * vAmp + (Math.random() - 0.5) * vNoise;
+    }
+}
+
+// ─── 50Hz Broadcast Loop ────────────────────────────────────
+setInterval(() => {
+    mutateFleet();
+    const jsonStr = JSON.stringify(fleet); // Array of 3 payloads
+    for (const client of wss.clients) {
+        if (client.readyState === WebSocket.OPEN) {
+            client.send(jsonStr);
+        }
+    }
+}, 20);
+
+const PORT = process.env.PORT || 8080;
+server.listen(PORT, () => {
+    console.log(`[🚀] Gas Turbine Simulator on port ${PORT} @ 50Hz`);
+    console.log(`[⚙️] Fleet: T-01, T-02, T-03 (Multiplexed)`);
+    console.log(`[⚙️] Baselines: RPM ~3600, Vibration ~1.5 mm/s, Combustor ~900°C`);
+    console.log(`[🔌] Faults: INJECT_FAULT | THERMAL_RUNAWAY | CLEAR_FAULT (Targets T-03 only)`);
+});
+</file>
+
+</files>

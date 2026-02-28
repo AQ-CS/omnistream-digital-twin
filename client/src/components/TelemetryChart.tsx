@@ -5,6 +5,7 @@ import 'uplot/dist/uPlot.min.css';
 export interface ChartConfig {
     label: string;
     stroke: string;
+    secondaryStroke?: string;
     yMin?: number;
     yMax?: number;
     warningLimit?: number;
@@ -39,15 +40,14 @@ export const TelemetryChart = forwardRef<TelemetryChartHandle, TelemetryChartPro
             if (!containerRef.current) return;
 
             // Build limit-line drawing hook
-            const drawLimitLines: uPlot.Hook = (u: uPlot) => {
-                const ctx = u.ctx;
+            const drawLimitLines: (u: uPlot) => void = (u: uPlot) => {
+                const { ctx, bbox, scales } = u;
+                const { left, width: w } = bbox;
                 const yAxis = u.axes[1];
-                const left = u.bbox.left;
-                const w = u.bbox.width;
 
                 // Helper: convert Y value to canvas pixel
                 const valToPos = (val: number): number | null => {
-                    const scale = u.scales[yAxis.scale ?? 'y'];
+                    const scale = scales[yAxis.scale ?? 'y'];
                     if (!scale || scale.min == null || scale.max == null) return null;
                     if (val < scale.min || val > scale.max) return null;
                     return u.valToPos(val, yAxis.scale ?? 'y', true);
@@ -122,6 +122,11 @@ export const TelemetryChart = forwardRef<TelemetryChartHandle, TelemetryChartPro
                         width: 1.5,
                         fill: config.stroke + '10',
                     },
+                    ...(config.secondaryStroke ? [{
+                        stroke: config.secondaryStroke,
+                        width: 2,
+                        dash: [5, 5]
+                    }] : []),
                 ],
             };
 

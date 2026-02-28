@@ -203,7 +203,7 @@ export const DigitalTwinSchematic = forwardRef<DigitalTwinSchematicHandle>(
                 <div style={{ padding: '24px 20px', flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: '20px' }}>
 
                     {/* Main Flow Diagram */}
-                    <div style={{ display: 'flex', alignItems: 'stretch', justifyContent: 'center', gap: '0px' }}>
+                    <div style={{ display: 'flex', alignItems: 'stretch', justifyContent: 'center', gap: '8px' }}>
 
                         {/* Intake */}
                         <div className="twin-node" style={{ width: '64px', borderRadius: '8px 0 0 8px', borderRight: 'none', justifyContent: 'center' }}>
@@ -214,7 +214,7 @@ export const DigitalTwinSchematic = forwardRef<DigitalTwinSchematicHandle>(
                         </div>
 
                         {/* Compressor */}
-                        <div className="twin-node" style={{ width: '120px', borderRadius: '0', borderRight: 'none', padding: '12px 8px' }}>
+                        <div className="twin-node" style={{ width: '150px', borderRadius: '0', borderRight: 'none', padding: '16px 14px' }}>
                             <BulletGraph
                                 label="Compressor"
                                 unit="RPM"
@@ -227,7 +227,7 @@ export const DigitalTwinSchematic = forwardRef<DigitalTwinSchematicHandle>(
                         <div
                             ref={combustorNodeRef}
                             className="twin-node"
-                            style={{ width: '120px', borderRadius: '0', borderRight: 'none', padding: '12px 8px', transition: 'border-color 0.5s ease, box-shadow 0.5s ease' }}
+                            style={{ width: '150px', borderRadius: '0', borderRight: 'none', padding: '16px 14px', transition: 'border-color 0.5s ease, box-shadow 0.5s ease' }}
                         >
                             <BulletGraph
                                 label="Combustor"
@@ -242,10 +242,10 @@ export const DigitalTwinSchematic = forwardRef<DigitalTwinSchematicHandle>(
                             ref={bearingNodeRef}
                             className="twin-node"
                             style={{
-                                width: '120px',
+                                width: '150px',
                                 borderRadius: '0',
                                 borderRight: 'none',
-                                padding: '12px 8px',
+                                padding: '16px 14px',
                                 backgroundColor: NODE_COLORS.nominal.bg,
                                 borderColor: NODE_COLORS.nominal.border,
                             }}
