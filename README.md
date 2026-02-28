@@ -55,6 +55,9 @@ I didn't just want this to look like a generic web app; I wanted it to look like
 * **Mobile Responsiveness:** The entire HMI scales cleanly to iPad and mobile devices using CSS media queries, transforming the sidebar into a horizontal nav without sacrificing data density.
 
 ## 🚀 Running the Sandbox
+If you want to see the website in action:
+
+https://github.com/AQ-CS/omnistream-digital-twin
 
 Want to inject a bearing fault and watch the math work?
 
