@@ -1,4 +1,5 @@
 import type { TelemetryPayload, FleetPdMState, ConnectionStatus } from '../types/telemetry';
+import { RUL_LIMITS, VIB_LIMITS } from '../config/thresholds';
 
 interface FleetOverviewProps {
     fleetState: FleetPdMState;
@@ -11,7 +12,7 @@ export function FleetOverview({ fleetState, fleetTelemetry, onDrillDown, connSta
     const turbines = ['T-01', 'T-02', 'T-03'];
 
     return (
-        <div style={{ padding: '24px 32px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
             <div style={{ borderBottom: '2px solid var(--hmi-border)', paddingBottom: '16px' }}>
                 <h2 style={{ margin: 0, fontSize: '20px', fontWeight: 700, color: 'var(--hmi-text-primary)', letterSpacing: '-0.02em' }}>
                     Fleet Overview
@@ -22,8 +23,8 @@ export function FleetOverview({ fleetState, fleetTelemetry, onDrillDown, connSta
             </div>
 
             <div style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
+                display: 'flex',
+                flexWrap: 'wrap',
                 gap: '24px'
             }}>
                 {turbines.map(id => {
@@ -41,10 +42,10 @@ export function FleetOverview({ fleetState, fleetTelemetry, onDrillDown, connSta
                         isThermalWarning = pdm.temperatureStatus === 'warning';
                         isThermalCritical = pdm.temperatureStatus === 'critical';
 
-                        if (pdm.estimatedRUL < 30 || isThermalCritical) {
+                        if (pdm.estimatedRUL < RUL_LIMITS.critical || isThermalCritical || pdm.smoothedVibration >= VIB_LIMITS.critical) {
                             statusColor = 'var(--hmi-alarm-critical)';
                             alarmLevel = 'critical';
-                        } else if (pdm.estimatedRUL < 60 || isThermalWarning) {
+                        } else if (pdm.estimatedRUL < RUL_LIMITS.warning || isThermalWarning || pdm.smoothedVibration >= VIB_LIMITS.warning) {
                             statusColor = 'var(--hmi-alarm-warning)';
                             alarmLevel = 'warning';
                         } else {
@@ -61,9 +62,9 @@ export function FleetOverview({ fleetState, fleetTelemetry, onDrillDown, connSta
 
                     const isStale = connStatus === 'STALE' || connStatus === 'DISCONNECTED';
 
-                    const renderStatusIcon = (rul: number, tempStatus: string | undefined) => {
-                        const isCritical = rul < 30 || tempStatus === 'critical';
-                        const isWarning = rul < 60 || tempStatus === 'warning';
+                    const renderStatusIcon = (rul: number, tempStatus: string | undefined, vib: number = 0) => {
+                        const isCritical = rul < RUL_LIMITS.critical || tempStatus === 'critical' || vib >= VIB_LIMITS.critical;
+                        const isWarning = rul < RUL_LIMITS.warning || tempStatus === 'warning' || vib >= VIB_LIMITS.warning;
 
                         // Critical: Boxed X
                         if (isCritical) return (
@@ -80,7 +81,7 @@ export function FleetOverview({ fleetState, fleetTelemetry, onDrillDown, connSta
                                 <circle cx="12" cy="16" r="1" fill="#2d2001" />
                             </svg>
                         );
-                        if (rul === Infinity && !pdm) return null;
+                        if (rul === 999 && !pdm) return null;
                         return <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="3"><circle cx="12" cy="12" r="10" /></svg>;
                     };
 
@@ -90,6 +91,7 @@ export function FleetOverview({ fleetState, fleetTelemetry, onDrillDown, connSta
                             onClick={() => onDrillDown(id)}
                             className={`hmi-panel ${alarmClass} ${isStale ? 'hmi-comm-loss' : ''}`}
                             style={{
+                                flex: '1 1 300px',
                                 cursor: 'pointer',
                                 boxSizing: 'border-box',
                                 transition: 'all 0.2s',
@@ -103,7 +105,7 @@ export function FleetOverview({ fleetState, fleetTelemetry, onDrillDown, connSta
                                 e.currentTarget.style.transform = 'none';
                             }}
                         >
-                            <div className="hmi-panel-header" style={{ borderBottomColor: alarmLevel !== 'nominal' ? `${statusColor}40` : 'var(--hmi-border)' }}>
+                            <div className="hmi-panel-header" style={{ borderBottomColor: statusColor }}>
                                 <span className="hmi-panel-title" style={{ fontSize: '14px', color: 'var(--hmi-text-primary)' }}>{id}</span>
                                 <div style={{
                                     padding: '4px 8px',
@@ -114,7 +116,7 @@ export function FleetOverview({ fleetState, fleetTelemetry, onDrillDown, connSta
                                     alignItems: 'center',
                                     justifyContent: 'center'
                                 }}>
-                                    {renderStatusIcon(pdm ? pdm.estimatedRUL : Infinity, pdm?.temperatureStatus)}
+                                    {renderStatusIcon(pdm ? pdm.estimatedRUL : 999, pdm?.temperatureStatus, pdm?.smoothedVibration)}
                                 </div>
                             </div>
 
@@ -167,7 +169,8 @@ export function FleetOverview({ fleetState, fleetTelemetry, onDrillDown, connSta
                                 }}>
                                     {isThermalCritical || isThermalWarning ?
                                         `${pdm?.smoothedTemperature.toFixed(1)} °C` :
-                                        (pdm && pdm.estimatedRUL < Infinity ? `${pdm.estimatedRUL.toFixed(1)}s` : 'Inf')
+                                        ((pdm && pdm.smoothedVibration >= VIB_LIMITS.critical) || (pdm && pdm.estimatedRUL <= 0) ? 'CRITICAL' :
+                                            (pdm && pdm.estimatedRUL < 999 ? `${pdm.estimatedRUL.toFixed(1)}s` : 'STABLE'))
                                     }
                                 </span>
                             </div>

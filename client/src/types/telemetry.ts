@@ -19,3 +19,24 @@ export type FleetPdMState = Record<string, PdMState>;
 
 // WebSocket Supervisor States
 export type ConnectionStatus = 'CONNECTED' | 'RECONNECTING' | 'STALE' | 'DISCONNECTED';
+
+// ─── Shared Configurations ───────────────────────────────────
+
+export type TwinNodeState = 'nominal' | 'warning' | 'critical' | 'failure';
+
+export interface TwinNodeLimits {
+    min: number;
+    max: number;
+    warning: number;
+    critical: number;
+}
+
+export interface ChartConfig {
+    label: string;
+    stroke: string;
+    secondaryStroke?: string;
+    yMin?: number;
+    yMax?: number;
+    warningLimit?: number;
+    criticalLimit?: number;
+}

@@ -1,4 +1,5 @@
 import type { TelemetryPayload } from '../types/telemetry';
+import { VIB_LIMITS } from '../config/thresholds';
 
 const BUFFER_SIZE = 3000; // 60s at 50Hz per turbine
 
@@ -81,7 +82,7 @@ export class TelemetryHistorian {
         const rows: string[] = [
             '# OmniStream Incident Report',
             `# Turbine: ${turbineId}`,
-            '# Limits: Vib >= 12.0 (CRITICAL), Vib >= 7.0 (WARNING)',
+            `# Limits: Vib >= ${VIB_LIMITS.critical} (CRITICAL), Vib >= ${VIB_LIMITS.warning} (WARNING)`,
             'timestamp_iso,rpm,vibration_mms,temperature_c,condition'
         ];
 
@@ -95,8 +96,8 @@ export class TelemetryHistorian {
             if (entry !== null) {
                 let cond = 'NOMINAL';
                 const absVib = Math.abs(entry.v);
-                if (absVib >= 12.0) cond = 'CRITICAL';
-                else if (absVib >= 7.0) cond = 'WARNING';
+                if (absVib >= VIB_LIMITS.critical) cond = 'CRITICAL';
+                else if (absVib >= VIB_LIMITS.warning) cond = 'WARNING';
 
                 const tsIso = new Date(entry.t).toISOString();
                 const rStr = entry.r.toFixed(2);
@@ -112,8 +113,13 @@ export class TelemetryHistorian {
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;
-        link.download = `incident_report_${turbineId}.csv`;
+
+        const safeIsoParams = new Date().toISOString().replace(/[:.]/g, '-');
+        link.download = `incident_report_${turbineId}_${safeIsoParams}.csv`;
+
+        document.body.appendChild(link);
         link.click();
+        document.body.removeChild(link);
         URL.revokeObjectURL(url);
     }
 }

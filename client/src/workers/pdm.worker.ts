@@ -3,6 +3,7 @@
 // Uses pre-allocated Float64Array circular buffers — zero dynamic allocations on the 50Hz hot path.
 
 import type { FleetPdMState, PdMState } from '../types/telemetry';
+import { VIB_LIMITS, TEMP_LIMITS } from '../config/thresholds';
 
 // ─── Types ───────────────────────────────────────────────────
 
@@ -57,16 +58,12 @@ function calculateLinearRegressionTyped(
 }
 
 function calculateRUL(current: number, slope: number, threshold: number): number {
-    const remaining = threshold - current;
+    if (current >= threshold) return 0; // Already failed
+    if (current < 4.0) return 999; // Baseline noise floor (safe)
+    if (slope <= 0.01) return 999; // Recovering or flat trajectory
 
-    // 1. First, check if the machine is already dead
-    if (remaining <= 0) return 0;
-
-    // 2. Next, check if it's actually getting worse
-    if (slope <= 0.05) return Infinity; // Stable or negligible degradation
-
-    // 3. Finally, calculate the countdown
-    return remaining / slope;
+    const rul = (threshold - current) / slope;
+    return rul > 120 ? 999 : rul; // Cap visible countdown to 120s
 }
 
 // ─── Worker State ────────────────────────────────────────────
@@ -81,6 +78,7 @@ class TurbineState {
     public vibBuffer = new Float64Array(RAW_BUFFER_SIZE);
     public vibHead = 0;
     public vibCount = 0;
+    public pointsSinceLastProcess = 0; // Track for 1Hz decimation
 
     // Trend buffer for linear regression (5s = 250 samples)
     public trendTsBuffer = new Float64Array(BUFFER_SIZE);
@@ -94,19 +92,23 @@ class TurbineState {
     // Thermal Tracking
     public lastTempEMA: number | null = null;
 
+    // RUL Median Filter
+    public rulBuffer = new Float64Array(3).fill(999);
+    public rulHead = 0;
+
     public currentPdM: PdMState = {
         smoothedVibration: 0,
         degradationSlope: 0,
-        estimatedRUL: Infinity,
+        estimatedRUL: 999,
         smoothedTemperature: 0,
         temperatureStatus: 'nominal'
     };
 
-    /** Write a vibration sample into the circular raw buffer */
     pushVib(value: number): void {
         this.vibBuffer[this.vibHead % RAW_BUFFER_SIZE] = value;
         this.vibHead++;
         if (this.vibCount < RAW_BUFFER_SIZE) this.vibCount++;
+        this.pointsSinceLastProcess++;
     }
 
     /** Find peak absolute vibration in the raw buffer */
@@ -155,46 +157,67 @@ self.onmessage = (e: MessageEvent<PdMWorkerInput>): void => {
         // Push into rolling circular buffer (index-based, no shift/push)
         state.pushVib(vibration);
 
-        // Need >=50 points (1 second) for meaningful regression
-        if (state.vibCount >= RAW_BUFFER_SIZE) {
+        // Need >=50 points (1 second) for meaningful regression, running at 1Hz (decimated)
+        if (state.vibCount >= RAW_BUFFER_SIZE && state.pointsSinceLastProcess >= RAW_BUFFER_SIZE) {
+            state.pointsSinceLastProcess = 0; // reset decimation counter
+
             // Find absolute maximum peak in the entire rolling buffer
             const peakAmplitude = state.peakVib();
 
-            // 1. EMA
+            // 1. EMA (alpha 0.1 at 1Hz)
             const ema = calculateEMA(peakAmplitude, state.lastEMA, 0.1);
             state.lastEMA = ema;
 
             // Push the smoothed result to the trend buffer (circular)
             state.pushTrend(timestamp, ema);
 
-            // 2. Linear Regression slope (over typed arrays)
-            const slope = calculateLinearRegressionTyped(
-                state.trendTsBuffer,
-                state.trendEmaBuffer,
-                state.trendHead,
-                state.trendCount,
-                BUFFER_SIZE
-            );
+            // 2. Linear Regression slope and RUL Burn-in
+            let slope = 0;
+            let rawRul = 999;
 
-            // 3. RUL (critical threshold = 12.0 mm/s)
-            const rul = calculateRUL(ema, slope, 12.0);
+            // Only calculate regression if we have a full 5-second buffer (burn-in period)
+            if (state.trendCount >= BUFFER_SIZE) {
+                // Linear Regression slope (over typed arrays)
+                slope = calculateLinearRegressionTyped(
+                    state.trendTsBuffer,
+                    state.trendEmaBuffer,
+                    state.trendHead,
+                    state.trendCount,
+                    BUFFER_SIZE
+                );
+
+                // 3. RUL (based on critical vibration threshold)
+                rawRul = calculateRUL(ema, slope, VIB_LIMITS.critical);
+            }
+
+            // Instant state overrides (bypass filter for immediate critical/stable states)
+            if (rawRul === 0) {
+                state.rulBuffer.fill(0);
+            } else if (rawRul === 999) {
+                state.rulBuffer.fill(999);
+            } else {
+                state.rulBuffer[state.rulHead % 3] = rawRul;
+                state.rulHead++;
+            }
+
+            let smoothedRul = rawRul;
+            if (rawRul !== 0 && rawRul !== 999) {
+                const sorted = [state.rulBuffer[0], state.rulBuffer[1], state.rulBuffer[2]].sort((a, b) => a - b);
+                smoothedRul = sorted[1];
+            }
 
             // 4. Thermal
             const tempEma = calculateEMA(temperature, state.lastTempEMA, 0.05); // Slower smoothing for thermal
             state.lastTempEMA = tempEma;
 
             let tempStatus: 'nominal' | 'warning' | 'critical' = 'nominal';
-            if (tempEma >= 960) tempStatus = 'critical';       // Thermal runaway critical threshold
-            else if (tempEma >= 940) tempStatus = 'warning';   // High temp warning
-
-            if (update.id === 'T-03') {
-                console.log(`[Worker] ${update.id} | Peak: ${peakAmplitude.toFixed(2)} | EMA: ${ema.toFixed(3)} | Slope: ${slope.toFixed(6)} | RUL: ${rul.toFixed(1)} | Temp: ${tempEma.toFixed(1)} (${tempStatus})`);
-            }
+            if (tempEma >= TEMP_LIMITS.critical) tempStatus = 'critical';       // Thermal runaway critical threshold
+            else if (tempEma >= TEMP_LIMITS.warning) tempStatus = 'warning';    // High temp warning
 
             state.currentPdM = {
                 smoothedVibration: ema,
                 degradationSlope: slope,
-                estimatedRUL: rul,
+                estimatedRUL: smoothedRul,
                 smoothedTemperature: tempEma,
                 temperatureStatus: tempStatus
             };

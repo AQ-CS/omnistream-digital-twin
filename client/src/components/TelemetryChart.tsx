@@ -19,12 +19,18 @@ export interface TelemetryChartHandle {
 interface TelemetryChartProps {
     title: string;
     config: ChartConfig;
+    info?: {
+        importance: string;
+        impact: string;
+        consequence: string;
+    };
     width?: number;
     height?: number;
 }
 
 export const TelemetryChart = forwardRef<TelemetryChartHandle, TelemetryChartProps>(
-    ({ title, config, width = 540, height = 160 }, ref) => {
+    ({ title, config, info, width, height = 160 }, ref) => {
+        const wrapperRef = useRef<HTMLDivElement>(null);
         const containerRef = useRef<HTMLDivElement>(null);
         const plotRef = useRef<uPlot | null>(null);
 
@@ -86,8 +92,10 @@ export const TelemetryChart = forwardRef<TelemetryChartHandle, TelemetryChartPro
                 ctx.restore();
             };
 
+            const initWidth = wrapperRef.current?.clientWidth || width || 500;
+
             const opts: uPlot.Options = {
-                width: width,
+                width: initWidth,
                 height: height,
                 cursor: { show: false },
                 legend: { show: false },
@@ -133,7 +141,17 @@ export const TelemetryChart = forwardRef<TelemetryChartHandle, TelemetryChartPro
             const plot = new uPlot(opts, [[], []], containerRef.current);
             plotRef.current = plot;
 
+            const resizeObserver = new ResizeObserver((entries) => {
+                for (let entry of entries) {
+                    plot.setSize({ width: entry.contentRect.width, height });
+                }
+            });
+            if (wrapperRef.current) {
+                resizeObserver.observe(wrapperRef.current);
+            }
+
             return () => {
+                resizeObserver.disconnect();
                 plot.destroy();
                 plotRef.current = null;
             };
@@ -144,20 +162,37 @@ export const TelemetryChart = forwardRef<TelemetryChartHandle, TelemetryChartPro
                 <div className="chart-panel-header">
                     <div className="chart-dot" style={{ background: config.stroke }}></div>
                     <span className="chart-label">{title}</span>
+                    {info && (
+                        <div className="chart-info-icon" style={{ marginLeft: '4px' }} tabIndex={0}>
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <circle cx="12" cy="12" r="10"></circle>
+                                <line x1="12" y1="16" x2="12" y2="12"></line>
+                                <line x1="12" y1="8" x2="12.01" y2="8"></line>
+                            </svg>
+                            <div className="chart-tooltip">
+                                <strong>Importance</strong>
+                                <div>{info.importance}</div>
+                                <strong>Fault Impact</strong>
+                                <div>{info.impact}</div>
+                                <strong>Future Consequence</strong>
+                                <div>{info.consequence}</div>
+                            </div>
+                        </div>
+                    )}
                     <div style={{ marginLeft: 'auto', display: 'flex', gap: '12px', alignItems: 'center' }}>
                         {config.warningLimit !== undefined && (
                             <span style={{ fontSize: '9px', fontWeight: 600, color: '#f59e0b', letterSpacing: '0.05em' }}>
-                                ⚠ {config.warningLimit}
+                                WARN: {config.warningLimit}
                             </span>
                         )}
                         {config.criticalLimit !== undefined && (
                             <span style={{ fontSize: '9px', fontWeight: 600, color: '#ef4444', letterSpacing: '0.05em' }}>
-                                ✕ {config.criticalLimit}
+                                CRIT: {config.criticalLimit}
                             </span>
                         )}
                     </div>
                 </div>
-                <div className="chart-body">
+                <div className="chart-body" ref={wrapperRef} style={{ width: '100%', padding: '4px 8px 8px', display: 'block', overflow: 'hidden' }}>
                     <div ref={containerRef} />
                 </div>
             </div>

@@ -18,8 +18,8 @@
   /* ─── Text ─── */
   --hmi-text-primary: #f1f5f9;
   --hmi-text-secondary: #94a3b8;
-  --hmi-text-muted: #64748b;
-  --hmi-text-dim: #475569;
+  --hmi-text-muted: #8b9cb8;
+  --hmi-text-dim: #6b7a94;
 
   /* ─── Accent (Nominal - Cool Blue) ─── */
   --hmi-accent: #38bdf8;
@@ -190,6 +190,7 @@ body {
   height: 100vh;
   overflow: hidden;
   position: relative;
+  min-width: 0;
 }
 
 .main-scroll {
@@ -202,11 +203,13 @@ body {
 
 .hmi-header {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   padding: 0 0 24px 0;
   border-bottom: 2px solid var(--hmi-border);
   margin-bottom: 24px;
+  flex-wrap: wrap;
+  gap: 16px;
 }
 
 .hmi-btn {
@@ -325,6 +328,7 @@ body {
   display: grid;
   gap: 24px;
   grid-template-columns: 1fr;
+  min-width: 0;
 }
 
 @media (min-width: 1280px) {
@@ -337,6 +341,7 @@ body {
   display: flex;
   flex-direction: column;
   gap: 16px;
+  min-width: 0;
 }
 
 .readouts-grid {
@@ -346,10 +351,10 @@ body {
   margin-bottom: 24px;
 }
 
-@media (max-width: 1024px) {
-  .readouts-grid {
-    grid-template-columns: 1fr;
-  }
+.schematic-diagnostics-col {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
 }
 
 
@@ -517,7 +522,7 @@ body {
   background: var(--hmi-bg-card);
   border: 1px solid var(--hmi-border);
   border-radius: var(--hmi-radius-lg);
-  overflow: hidden;
+  min-width: 0;
 }
 
 .chart-panel-header {
@@ -574,10 +579,10 @@ body {
   background: var(--hmi-bg-card);
   border: 1px solid var(--hmi-border);
   border-radius: var(--hmi-radius-lg);
-  overflow: hidden;
+  overflow: visible;
   display: flex;
   flex-direction: column;
-  height: 100%;
+  flex: 1;
 }
 
 .twin-node {
@@ -600,6 +605,56 @@ body {
   text-transform: uppercase;
   color: var(--hmi-text-dim);
   margin-bottom: 4px;
+}
+
+.twin-flow-layout {
+  display: flex;
+  align-items: stretch;
+  justify-content: center;
+  gap: 8px;
+  flex-direction: row;
+  flex-wrap: wrap;
+}
+
+.twin-node-intake {
+  width: 64px;
+  flex-shrink: 0;
+  justify-content: center;
+  border-radius: var(--hmi-radius);
+}
+
+.twin-node-core {
+  min-width: 150px;
+  flex: 1;
+  width: clamp(150px, 100%, 250px);
+  border-radius: var(--hmi-radius);
+  padding: 16px 14px;
+}
+
+.twin-node-exhaust {
+  width: 64px;
+  flex-shrink: 0;
+  justify-content: center;
+  border-radius: var(--hmi-radius);
+}
+
+.shaft-line-container {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 4px;
+}
+
+.shaft-line-left {
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, #334155);
+}
+
+.shaft-line-right {
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, #334155, transparent);
 }
 
 .twin-node-value {
@@ -640,4 +695,201 @@ body {
   color: var(--hmi-text-dim);
   font-size: 14px;
   padding: 0 2px;
+}
+
+/* ─── Responsive Design ─────────────────────────────────────── */
+
+/* Tablet: 769px – 1024px (iPad Pro, iPad Air) */
+@media (max-width: 1024px) {
+  .app-layout {
+    flex-direction: column;
+    height: 100vh;
+  }
+
+  /* Sidebar → Horizontal Top Bar */
+  .sidebar {
+    width: 100%;
+    flex-direction: row;
+    align-items: center;
+    border-right: none;
+    border-bottom: 1px solid var(--hmi-border);
+    flex-shrink: 0;
+  }
+
+  .sidebar-header {
+    padding: 12px 16px;
+    border-bottom: none;
+    border-right: 1px solid var(--hmi-border);
+  }
+
+  .sidebar-nav {
+    flex-direction: row;
+    padding: 8px 12px;
+    overflow-x: auto;
+    white-space: nowrap;
+    align-items: center;
+  }
+
+  .sidebar-item {
+    padding: 8px 16px;
+    margin-bottom: 0 !important;
+    border-bottom: none !important;
+    border-right: 1px solid var(--hmi-border);
+    border-radius: 4px;
+  }
+
+  .main-content {
+    height: auto;
+    flex: 1;
+  }
+
+  .main-scroll {
+    padding: 16px;
+  }
+
+  /* Single-column dashboard, readouts stay 3-across */
+  .dashboard-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .readouts-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  /* Schematic + Diagnostics side-by-side */
+  .schematic-diagnostics-col {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    align-items: stretch;
+  }
+
+  /* Schematic nodes stack vertically inside their container */
+  .twin-flow-layout {
+    flex-direction: column !important;
+    align-items: stretch !important;
+  }
+
+  .twin-node-intake,
+  .twin-node-core,
+  .twin-node-exhaust {
+    width: 100% !important;
+  }
+
+  .shaft-line-container {
+    display: none !important;
+  }
+
+  .chart-tooltip {
+    left: 50%;
+    right: auto;
+    transform: translateX(-50%);
+    width: 260px;
+  }
+}
+
+/* Mobile: ≤640px (phones) */
+@media (max-width: 640px) {
+  .hmi-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 16px;
+  }
+
+  .hmi-header>div:nth-child(2) {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+
+  /* Stack readouts vertically */
+  .readouts-grid {
+    grid-template-columns: 1fr;
+  }
+
+  /* Stack schematic + diagnostics vertically */
+  .schematic-diagnostics-col {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .schematic-diagnostics-col>* {
+    width: 100%;
+  }
+
+  .charts-stack {
+    width: 100%;
+  }
+
+  .hmi-btn {
+    flex: 1 1 100%;
+    text-align: center;
+  }
+
+  .warning-banner {
+    flex-direction: column;
+    align-items: flex-start;
+    text-align: left;
+  }
+
+  .warning-banner>div:last-child {
+    text-align: left !important;
+  }
+}
+
+/* ─── Tooltip System ───────────────────────────────────────── */
+.chart-info-icon {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: help;
+  color: var(--hmi-text-muted);
+  transition: color 0.2s;
+}
+
+.chart-info-icon:hover {
+  color: var(--hmi-text-primary);
+}
+
+.chart-tooltip {
+  visibility: hidden;
+  opacity: 0;
+  position: absolute;
+  top: 100%;
+  left: 0;
+  z-index: 50;
+  width: 280px;
+  background: var(--hmi-bg-elevated);
+  border: 1px solid var(--hmi-border);
+  border-radius: var(--hmi-radius);
+  padding: 12px;
+  color: var(--hmi-text-secondary);
+  font-size: 11px;
+  line-height: 1.4;
+  margin-top: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+  transition: opacity 0.2s, visibility 0.2s;
+  pointer-events: none;
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+.chart-info-icon:hover .chart-tooltip,
+.chart-info-icon:focus .chart-tooltip,
+.chart-info-icon:active .chart-tooltip {
+  visibility: visible;
+  opacity: 1;
+}
+
+.chart-tooltip strong {
+  color: var(--hmi-text-primary);
+  display: block;
+  margin-top: 6px;
+  margin-bottom: 2px;
+}
+
+.chart-tooltip strong:first-child {
+  margin-top: 0;
 }

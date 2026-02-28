@@ -1,33 +1,41 @@
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { AlignedData } from 'uplot';
 import { LiveReadout, type LiveReadoutHandle } from './components/LiveReadout';
-import { TelemetryChart, type TelemetryChartHandle, type ChartConfig } from './components/TelemetryChart';
-import { DigitalTwinSchematic, type DigitalTwinSchematicHandle, type TwinNodeState } from './components/DigitalTwinSchematic';
+import { TelemetryChart, type TelemetryChartHandle } from './components/TelemetryChart';
+import { DigitalTwinSchematic, type DigitalTwinSchematicHandle } from './components/DigitalTwinSchematic';
 import { DiagnosticsPanel } from './components/DiagnosticsPanel';
 import { FleetOverview } from './components/FleetOverview';
 import { TelemetryHistorian } from './utils/Historian';
-import type { TelemetryPayload, FleetPdMState, ConnectionStatus } from './types/telemetry';
+import type { TelemetryPayload, FleetPdMState, ConnectionStatus, TwinNodeState } from './types/telemetry';
+import { RPM_CONFIG, VIB_CONFIG, TEMP_CONFIG, VIB_LIMITS, RUL_LIMITS } from './config/thresholds';
 import type { PdMWorkerOutput } from './workers/pdm.worker';
 import PdMWorker from './workers/pdm.worker?worker';
-
-// ─── Chart Configs ──────────────────────────────────────────
-const RPM_CONFIG: ChartConfig = {
-  label: 'RPM', stroke: '#38bdf8', yMin: 3450, yMax: 3850, warningLimit: 3700, criticalLimit: 3800,
-};
-
-const VIB_CONFIG: ChartConfig = {
-  label: 'Vibration', stroke: '#94a3b8', secondaryStroke: '#f59e0b', yMin: -5, yMax: 16, warningLimit: 7.0, criticalLimit: 12.0,
-};
-
-const TEMP_CONFIG: ChartConfig = {
-  label: 'Temp °C', stroke: '#818cf8', yMin: 870, yMax: 970, warningLimit: 940, criticalLimit: 955,
-};
+import SimulationWorker from './workers/simulation.worker?worker';
 
 const TURBINES = ['T-01', 'T-02', 'T-03'];
+
+const CHART_INFO = {
+  rpm: {
+    importance: "Rotor speed is the fundamental operational baseline of the gas turbine, dictating compressor aerodynamic stability and the synchronization frequency of the coupled electrical generator (e.g., 50Hz/60Hz).",
+    impact: "Mechanical binding, compressor stall, or erratic fuel valve actuation will cause high-frequency RPM jitter or uncommanded deceleration.",
+    consequence: "Sustained deviation leads to grid desynchronization, resonant frequency blade shear, or an automated safety trip (turbine shutdown)."
+  },
+  vib: {
+    importance: "Measured in velocity (mm/s) to capture fatigue-inducing energy, vibration is the primary indicator of rotor dynamic health, shaft alignment, and bearing integrity.",
+    impact: "Degradation of the hydrodynamic lube oil film or microscopic physical wear in the journal bearings causes the vibration sine wave amplitude to aggressively expand.",
+    consequence: "Ignored vibration trends exponentially accelerate metal fatigue, leading to catastrophic bearing seizure, shaft deflection, and destructive stator rubbing."
+  },
+  temp: {
+    importance: "Represents the thermodynamic limit of the turbine. Temperatures must be maximized for thermal efficiency while remaining strictly beneath the melting threshold of the hot-gas-path materials.",
+    impact: "Blocked cooling air intakes, fuel nozzle asymmetry, or thermal barrier coating (TBC) degradation results in localized or global thermal runaway.",
+    consequence: "Sustained over-temperature conditions induce metallurgical creep, blade elongation, and eventual catastrophic melting of the turbine blades."
+  }
+};
 
 function App() {
   // ─── Turbine Selection State ────────────────────────────────
   const [selectedTurbine, setSelectedTurbine] = useState<string>('OVERVIEW');
+  const [overviewTarget, setOverviewTarget] = useState<string>('T-01');
   const selectedTurbineRef = useRef(selectedTurbine);
   useEffect(() => {
     selectedTurbineRef.current = selectedTurbine;
@@ -60,14 +68,18 @@ function App() {
   const warningTitleRef = useRef<HTMLDivElement>(null);
   const warningDescRef = useRef<HTMLDivElement>(null);
   const warningMetricLabelRef = useRef<HTMLDivElement>(null);
+  const warningIconRef = useRef<SVGSVGElement>(null);
 
-  const wsRef = useRef<WebSocket | null>(null);
+  const simWorkerRef = useRef<Worker | null>(null);
   const workerRef = useRef<Worker | null>(null);
 
   // ─── Data Buffers ───────────────────────────────────────────
   const rpmBuffer = useRef<number[][]>([[], []]);
   const vibBuffer = useRef<number[][]>([[], [], []]);
   const tempBuffer = useRef<number[][]>([[], []]);
+
+  // ─── Current UI States ──────────────────────────────────────
+  const currentEmaRef = useRef<Record<string, number>>({});
 
   // ─── Historian ──────────────────────────────────────────────
   const historianRef = useRef<TelemetryHistorian>(new TelemetryHistorian());
@@ -101,13 +113,13 @@ function App() {
     console.log(`[UI] Switched to ${selectedTurbine}. fleetState value:`, currentPdM);
 
     if (currentPdM && selectedTurbine !== 'OVERVIEW') {
-      const { estimatedRUL, temperatureStatus, smoothedTemperature } = currentPdM;
+      const { estimatedRUL, temperatureStatus, smoothedTemperature, smoothedVibration } = currentPdM;
       let ns: TwinNodeState = 'nominal';
 
       const isThermalCritical = temperatureStatus === 'critical';
       const isThermalWarning = temperatureStatus === 'warning';
-      const isVibCritical = estimatedRUL <= 0 || estimatedRUL < 30;
-      const isVibWarning = estimatedRUL < 60;
+      const isVibCritical = estimatedRUL <= 0 || estimatedRUL < RUL_LIMITS.critical || smoothedVibration >= VIB_LIMITS.critical;
+      const isVibWarning = estimatedRUL < RUL_LIMITS.warning || smoothedVibration >= VIB_LIMITS.warning;
 
       if (isThermalCritical || estimatedRUL <= 0) ns = 'failure';
       else if (isVibCritical) ns = 'critical';
@@ -117,23 +129,38 @@ function App() {
       schematicRef.current?.updateBearingState(ns);
 
       if (ns !== 'nominal') {
-        if (warningRef.current) warningRef.current.style.display = 'flex';
+        if (warningRef.current) {
+          warningRef.current.style.display = 'flex';
+          warningRef.current.style.background = ns === 'warning' ? '#2d2001' : 'var(--hmi-alarm-bg)';
+          warningRef.current.style.borderColor = ns === 'warning' ? 'rgba(245, 158, 11, 0.4)' : 'rgba(239, 68, 68, 0.4)';
+          warningRef.current.style.borderLeftColor = ns === 'warning' ? 'var(--hmi-alarm-warning)' : 'var(--hmi-alarm-critical)';
+        }
+        if (warningIconRef.current) warningIconRef.current.style.stroke = ns === 'warning' ? 'var(--hmi-alarm-warning)' : '#ef4444';
+        if (warningTitleRef.current) warningTitleRef.current.style.color = ns === 'warning' ? '#f1f5f9' : '#fca5a5';
+        if (warningDescRef.current) warningDescRef.current.style.color = ns === 'warning' ? '#fbbf24' : 'rgba(252, 165, 165, 0.8)';
+        if (warningMetricLabelRef.current) warningMetricLabelRef.current.style.color = ns === 'warning' ? 'rgba(245, 158, 11, 0.8)' : 'rgba(248, 113, 113, 0.8)';
+        if (rulTextRef.current) rulTextRef.current.style.color = ns === 'warning' ? 'var(--hmi-alarm-warning)' : '#fca5a5';
 
-        // Determine whether to show Thermal or Bearing fault message
-        if (isThermalCritical || isThermalWarning) {
-          if (warningTitleRef.current) warningTitleRef.current.innerText = `Agentic Warning: Thermal Runaway Detected on ${selectedTurbine}`;
-          if (warningDescRef.current) warningDescRef.current.innerText = `Combustor temperature exceeding maximum safe limits.`;
+        if (isThermalCritical) {
+          if (warningTitleRef.current) warningTitleRef.current.innerText = `CRITICAL ALARM: Thermal Runaway on ${selectedTurbine}`;
+          if (warningDescRef.current) warningDescRef.current.innerText = `Combustor temperature has breached maximum safe operating limits.`;
           if (warningMetricLabelRef.current) warningMetricLabelRef.current.innerText = `TEMP °C`;
           if (rulTextRef.current) rulTextRef.current.innerText = smoothedTemperature ? smoothedTemperature.toFixed(1) : '---';
-        } else {
-          if (warningTitleRef.current) warningTitleRef.current.innerText = `Agentic Warning: Bearing Degradation Detected on ${selectedTurbine}`;
+        } else if (isThermalWarning) {
+          if (warningTitleRef.current) warningTitleRef.current.innerText = `WARNING: Thermal Instability on ${selectedTurbine}`;
+          if (warningDescRef.current) warningDescRef.current.innerText = `Combustor temperature approaching critical limits.`;
+          if (warningMetricLabelRef.current) warningMetricLabelRef.current.innerText = `TEMP °C`;
+          if (rulTextRef.current) rulTextRef.current.innerText = smoothedTemperature ? smoothedTemperature.toFixed(1) : '---';
+        } else if (isVibCritical) {
+          if (warningTitleRef.current) warningTitleRef.current.innerText = `CRITICAL ALARM: Bearing Failure on ${selectedTurbine}`;
+          if (warningDescRef.current) warningDescRef.current.innerText = `Vibration has breached safety limits. Equipment integrity compromised.`;
+          if (warningMetricLabelRef.current) warningMetricLabelRef.current.innerText = `EST. RUL`;
+          if (rulTextRef.current) rulTextRef.current.innerText = 'CRITICAL';
+        } else if (isVibWarning) {
+          if (warningTitleRef.current) warningTitleRef.current.innerText = `Agentic Warning: Bearing Degradation on ${selectedTurbine}`;
           if (warningDescRef.current) warningDescRef.current.innerText = `Vibration trend projects imminent threshold breach.`;
           if (warningMetricLabelRef.current) warningMetricLabelRef.current.innerText = `EST. RUL`;
-          if (estimatedRUL <= 0) {
-            if (rulTextRef.current) rulTextRef.current.innerText = 'CRITICAL';
-          } else {
-            if (rulTextRef.current) rulTextRef.current.innerText = `${estimatedRUL.toFixed(1)}s`;
-          }
+          if (rulTextRef.current) rulTextRef.current.innerText = estimatedRUL < 999 ? `${estimatedRUL.toFixed(1)}s` : 'STABLE';
         }
       } else if (warningRef.current) {
         console.log(`[UI] Hiding warning banner (Systems Nominal)`);
@@ -172,15 +199,16 @@ function App() {
         if (activeTurbine !== 'OVERVIEW') {
           const activeState = states[activeTurbine];
           if (activeState) {
-            const { estimatedRUL, temperatureStatus, smoothedTemperature } = activeState;
+            const { estimatedRUL, temperatureStatus, smoothedTemperature, smoothedVibration } = activeState;
+            currentEmaRef.current[activeTurbine] = smoothedVibration;
 
             // Schematic bearing state
             let ns: TwinNodeState = 'nominal';
 
             const isThermalCritical = temperatureStatus === 'critical';
             const isThermalWarning = temperatureStatus === 'warning';
-            const isVibCritical = estimatedRUL <= 0 || estimatedRUL < 30;
-            const isVibWarning = estimatedRUL < 60;
+            const isVibCritical = estimatedRUL <= 0 || estimatedRUL < RUL_LIMITS.critical || smoothedVibration >= VIB_LIMITS.critical;
+            const isVibWarning = estimatedRUL < RUL_LIMITS.warning || smoothedVibration >= VIB_LIMITS.warning;
 
             if (isThermalCritical || estimatedRUL <= 0) ns = 'failure';
             else if (isVibCritical) ns = 'critical';
@@ -190,22 +218,38 @@ function App() {
 
             // Warning banner overlay
             if (ns !== 'nominal') {
-              if (warningRef.current) warningRef.current.style.display = 'flex';
+              if (warningRef.current) {
+                warningRef.current.style.display = 'flex';
+                warningRef.current.style.background = ns === 'warning' ? '#2d2001' : 'var(--hmi-alarm-bg)';
+                warningRef.current.style.borderColor = ns === 'warning' ? 'rgba(245, 158, 11, 0.4)' : 'rgba(239, 68, 68, 0.4)';
+                warningRef.current.style.borderLeftColor = ns === 'warning' ? 'var(--hmi-alarm-warning)' : 'var(--hmi-alarm-critical)';
+              }
+              if (warningIconRef.current) warningIconRef.current.style.stroke = ns === 'warning' ? 'var(--hmi-alarm-warning)' : '#ef4444';
+              if (warningTitleRef.current) warningTitleRef.current.style.color = ns === 'warning' ? '#f1f5f9' : '#fca5a5';
+              if (warningDescRef.current) warningDescRef.current.style.color = ns === 'warning' ? '#fbbf24' : 'rgba(252, 165, 165, 0.8)';
+              if (warningMetricLabelRef.current) warningMetricLabelRef.current.style.color = ns === 'warning' ? 'rgba(245, 158, 11, 0.8)' : 'rgba(248, 113, 113, 0.8)';
+              if (rulTextRef.current) rulTextRef.current.style.color = ns === 'warning' ? 'var(--hmi-alarm-warning)' : '#fca5a5';
 
-              if (isThermalCritical || isThermalWarning) {
-                if (warningTitleRef.current) warningTitleRef.current.innerText = `Agentic Warning: Thermal Runaway Detected on ${activeTurbine}`;
-                if (warningDescRef.current) warningDescRef.current.innerText = `Combustor temperature exceeding maximum safe limits.`;
+              if (isThermalCritical) {
+                if (warningTitleRef.current) warningTitleRef.current.innerText = `CRITICAL ALARM: Thermal Runaway on ${activeTurbine}`;
+                if (warningDescRef.current) warningDescRef.current.innerText = `Combustor temperature has breached maximum safe operating limits.`;
                 if (warningMetricLabelRef.current) warningMetricLabelRef.current.innerText = `TEMP °C`;
                 if (rulTextRef.current) rulTextRef.current.innerText = smoothedTemperature ? smoothedTemperature.toFixed(1) : '---';
-              } else {
-                if (warningTitleRef.current) warningTitleRef.current.innerText = `Agentic Warning: Bearing Degradation Detected on ${activeTurbine}`;
+              } else if (isThermalWarning) {
+                if (warningTitleRef.current) warningTitleRef.current.innerText = `WARNING: Thermal Instability on ${activeTurbine}`;
+                if (warningDescRef.current) warningDescRef.current.innerText = `Combustor temperature approaching critical limits.`;
+                if (warningMetricLabelRef.current) warningMetricLabelRef.current.innerText = `TEMP °C`;
+                if (rulTextRef.current) rulTextRef.current.innerText = smoothedTemperature ? smoothedTemperature.toFixed(1) : '---';
+              } else if (isVibCritical) {
+                if (warningTitleRef.current) warningTitleRef.current.innerText = `CRITICAL ALARM: Bearing Failure on ${activeTurbine}`;
+                if (warningDescRef.current) warningDescRef.current.innerText = `Vibration has breached safety limits. Equipment integrity compromised.`;
+                if (warningMetricLabelRef.current) warningMetricLabelRef.current.innerText = `EST. RUL`;
+                if (rulTextRef.current) rulTextRef.current.innerText = 'CRITICAL';
+              } else if (isVibWarning) {
+                if (warningTitleRef.current) warningTitleRef.current.innerText = `Agentic Warning: Bearing Degradation on ${activeTurbine}`;
                 if (warningDescRef.current) warningDescRef.current.innerText = `Vibration trend projects imminent threshold breach.`;
                 if (warningMetricLabelRef.current) warningMetricLabelRef.current.innerText = `EST. RUL`;
-                if (estimatedRUL <= 0) {
-                  if (rulTextRef.current) rulTextRef.current.innerText = 'CRITICAL';
-                } else {
-                  if (rulTextRef.current) rulTextRef.current.innerText = `${estimatedRUL.toFixed(1)}s`;
-                }
+                if (rulTextRef.current) rulTextRef.current.innerText = estimatedRUL < 999 ? `${estimatedRUL.toFixed(1)}s` : 'STABLE';
               }
             } else if (warningRef.current) {
               warningRef.current.style.display = 'none';
@@ -223,20 +267,18 @@ function App() {
     };
   }, []); // Run ONCE on mount. Do not rebind worker on turbine change, otherwise it wipes the fleet PdM state.
 
-  // ─── WebSocket Supervisor with Heartbeat & Reconnection ─────
-  const connect = useCallback(() => {
-    const ws = new WebSocket('ws://localhost:8080');
-    wsRef.current = ws;
+  // ─── Simulation Worker Setup ──────────────────────────────────
+  useEffect(() => {
+    const simWorker = new SimulationWorker();
+    simWorkerRef.current = simWorker;
 
-    ws.onopen = () => {
-      console.log('[HMI] Connected @ 50Hz (Multiplexed Fleet)');
-      setConnStatus('CONNECTED');
-      connStatusRef.current = 'CONNECTED';
-    };
+    setConnStatus('CONNECTED');
+    connStatusRef.current = 'CONNECTED';
+    console.log('[HMI] Simulation Worker Connected @ 50Hz (Multiplexed Fleet)');
 
     let lastPayloadRender = 0;
 
-    ws.onmessage = (event: MessageEvent) => {
+    simWorker.onmessage = (event: MessageEvent<TelemetryPayload[]>) => {
       // Update watchdog timestamp on every message
       lastSeenRef.current = Date.now();
 
@@ -247,8 +289,7 @@ function App() {
       }
 
       try {
-        // Now expecting an array of [{id, t, r, v, c}]
-        const payloadArray: TelemetryPayload[] = JSON.parse(event.data as string);
+        const payloadArray = event.data;
 
         // 1) Push everything to Worker and Historian
         const workerUpdates = [];
@@ -278,10 +319,13 @@ function App() {
             rpmBuffer.current[0].push(ts); rpmBuffer.current[1].push(activePayload.r);
             vibBuffer.current[0].push(ts); vibBuffer.current[1].push(activePayload.v);
 
-            const rawArr = vibBuffer.current[1];
-            const recent = rawArr.slice(-50); // 1-second window for UI smoothness
-            const currentPeak = Math.max(...recent.map(Math.abs));
-            vibBuffer.current[2].push(currentPeak);
+            // Plot the worker's EMA smoothed vibration as the warning track
+            // Fallback to absolute current vibration if EMA isn't populated yet
+            let currentEma = currentEmaRef.current[activeTurbine];
+            if (currentEma === undefined) {
+              currentEma = Math.abs(activePayload.v);
+            }
+            vibBuffer.current[2].push(currentEma);
 
             tempBuffer.current[0].push(ts); tempBuffer.current[1].push(activePayload.c);
 
@@ -296,7 +340,7 @@ function App() {
 
             // Direct DOM manipulation
             rpmRef.current?.updateValue(activePayload.r);
-            vibRef.current?.updateValue(currentPeak);
+            vibRef.current?.updateValue(currentEma);
             tempRef.current?.updateValue(activePayload.c);
 
             rpmChartRef.current?.updateData(rpmBuffer.current as AlignedData);
@@ -304,7 +348,7 @@ function App() {
             tempChartRef.current?.updateData(tempBuffer.current as AlignedData);
 
             schematicRef.current?.updateRpmValue(activePayload.r);
-            schematicRef.current?.updateVibValue(currentPeak);
+            schematicRef.current?.updateVibValue(currentEma);
             schematicRef.current?.updateTempValue(activePayload.c);
           }
         } else {
@@ -315,33 +359,10 @@ function App() {
             lastPayloadRender = now;
           }
         }
-
       } catch (err) {
-        console.error('[HMI] Parse error', err);
+        console.error('[HMI] Worker parse error', err);
       }
     };
-
-    ws.onclose = () => {
-      console.log('[HMI] Disconnected — scheduling reconnect');
-      wsRef.current = null;
-      setConnStatus('RECONNECTING');
-      connStatusRef.current = 'RECONNECTING';
-
-      // Exponential backoff capped at 5s
-      setTimeout(() => {
-        console.log('[HMI] Attempting reconnect...');
-        connect();
-      }, Math.min(1000 * Math.pow(2, Math.random()), 5000));
-    };
-
-    ws.onerror = () => {
-      // onclose will fire after onerror, which handles reconnection
-      console.error('[HMI] WebSocket error');
-    };
-  }, []);
-
-  useEffect(() => {
-    connect();
 
     // Data-stale watchdog: if no data for 2s while supposedly connected, go STALE
     const watchdogId = setInterval(() => {
@@ -354,17 +375,17 @@ function App() {
 
     return () => {
       clearInterval(watchdogId);
-      wsRef.current?.close();
-      wsRef.current = null;
+      simWorker.terminate();
+      simWorkerRef.current = null;
     };
-  }, [connect]);
+  }, []);
 
 
   // ─── Actions ─────────────────────────────────────────────────
   const send = (type: string): void => {
-    if (wsRef.current?.readyState === WebSocket.OPEN) {
-      wsRef.current.send(JSON.stringify({ type }));
-    }
+    // Determine the target: if in overview, use the overview target dropdown selection
+    const targetId = selectedTurbine === 'OVERVIEW' ? overviewTarget : selectedTurbine;
+    simWorkerRef.current?.postMessage({ type, targetId });
   };
 
   const exportIncident = (): void => {
@@ -374,9 +395,9 @@ function App() {
   const isConnected = connStatus === 'CONNECTED';
 
   // ─── Sidebar Render Helpers ───────────────────────────────────
-  const renderStatusIcon = (rul: number, tempStatus?: string) => {
-    const isCritical = rul < 30 || tempStatus === 'critical';
-    const isWarning = rul < 60 || tempStatus === 'warning';
+  const renderStatusIcon = (rul: number, tempStatus?: string, vib: number = 0) => {
+    const isCritical = rul < RUL_LIMITS.critical || tempStatus === 'critical' || vib >= VIB_LIMITS.critical;
+    const isWarning = rul < RUL_LIMITS.warning || tempStatus === 'warning' || vib >= VIB_LIMITS.warning;
 
     // Critical: Boxed X
     if (isCritical) return (
@@ -424,10 +445,11 @@ function App() {
             style={{ marginBottom: '8px', borderBottom: '1px solid var(--hmi-border)', paddingBottom: '16px', borderRadius: 0 }}
           >
             <span className="sidebar-item-label" style={{ color: 'var(--hmi-accent)' }}>FLEET OVERVIEW</span>
-            {Object.values(fleetState).some(p => p.estimatedRUL < 60 || p.temperatureStatus !== 'nominal') && (
+            {Object.values(fleetState).some(p => p.estimatedRUL < RUL_LIMITS.warning || p.smoothedVibration >= VIB_LIMITS.warning || p.temperatureStatus !== 'nominal') && (
               renderStatusIcon(
                 Math.min(...Object.values(fleetState).map(p => p.estimatedRUL)),
-                Object.values(fleetState).some(p => p.temperatureStatus === 'critical') ? 'critical' : Object.values(fleetState).some(p => p.temperatureStatus === 'warning') ? 'warning' : 'nominal'
+                Object.values(fleetState).some(p => p.temperatureStatus === 'critical') ? 'critical' : Object.values(fleetState).some(p => p.temperatureStatus === 'warning') ? 'warning' : 'nominal',
+                Math.max(...Object.values(fleetState).map(p => p.smoothedVibration))
               )
             )}
           </div>
@@ -438,7 +460,7 @@ function App() {
               onClick={() => setSelectedTurbine(id)}
             >
               <span className="sidebar-item-label">{id}</span>
-              {renderStatusIcon(fleetState[id] ? fleetState[id].estimatedRUL : Infinity, fleetState[id]?.temperatureStatus)}
+              {renderStatusIcon(fleetState[id] ? fleetState[id].estimatedRUL : 999, fleetState[id]?.temperatureStatus, fleetState[id]?.smoothedVibration)}
             </div>
           ))}
         </div>
@@ -458,7 +480,18 @@ function App() {
                 {selectedTurbine === 'OVERVIEW' ? 'Global Fleet Status View' : 'Selected Asset Telemetry View'} · ISA-101 HMI
               </p>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+              {selectedTurbine === 'OVERVIEW' && (
+                <select
+                  className="hmi-btn"
+                  value={overviewTarget}
+                  onChange={e => setOverviewTarget(e.target.value)}
+                  disabled={!isConnected}
+                  style={{ opacity: isConnected ? 1 : 0.4, padding: '7px 12px', background: 'var(--hmi-bg-deep)' }}
+                >
+                  {TURBINES.map(t => <option key={t} value={t}>{t} Target</option>)}
+                </select>
+              )}
               <button className="hmi-btn" onClick={() => send('INJECT_FAULT')} disabled={!isConnected} style={{ opacity: isConnected ? 1 : 0.4 }}>Bearing Fault</button>
               <button className="hmi-btn" onClick={() => send('THERMAL_RUNAWAY')} disabled={!isConnected} style={{ opacity: isConnected ? 1 : 0.4 }}>Thermal Runaway</button>
               <button className="hmi-btn" onClick={() => send('CLEAR_FAULT')} disabled={!isConnected} style={{ opacity: isConnected ? 1 : 0.4 }}>Clear All</button>
@@ -488,7 +521,7 @@ function App() {
             <>
               {/* Warning Banner Overlay */}
               <div ref={warningRef} className="warning-banner" style={{ display: 'none' }}>
-                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="fault-pulse" style={{ flexShrink: 0 }}>
+                <svg ref={warningIconRef} width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="fault-pulse" style={{ flexShrink: 0 }}>
                   <path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                 </svg>
                 <div style={{ flex: 1 }}>
@@ -512,10 +545,8 @@ function App() {
               <div className="dashboard-grid">
 
                 {/* Left Column: Schematic & Diagnostics */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-                  <div style={{ height: '350px' }}>
-                    <DigitalTwinSchematic ref={schematicRef} />
-                  </div>
+                <div className="schematic-diagnostics-col">
+                  <DigitalTwinSchematic ref={schematicRef} />
                   <DiagnosticsPanel
                     turbineId={selectedTurbine}
                     payload={currentPayload}
@@ -526,9 +557,9 @@ function App() {
 
                 {/* Right Column: Stacked Charts */}
                 <div className="charts-stack">
-                  <TelemetryChart ref={rpmChartRef} title="Rotor Speed" config={RPM_CONFIG} width={500} height={150} />
-                  <TelemetryChart ref={vibChartRef} title="Bearing Vibration" config={VIB_CONFIG} width={500} height={150} />
-                  <TelemetryChart ref={tempChartRef} title="Combustor Temp" config={TEMP_CONFIG} width={500} height={150} />
+                  <TelemetryChart ref={rpmChartRef} title="Rotor Speed" config={RPM_CONFIG} height={150} info={CHART_INFO.rpm} />
+                  <TelemetryChart ref={vibChartRef} title="Bearing Vibration" config={VIB_CONFIG} height={150} info={CHART_INFO.vib} />
+                  <TelemetryChart ref={tempChartRef} title="Combustor Temp" config={TEMP_CONFIG} height={150} info={CHART_INFO.temp} />
                 </div>
 
               </div>

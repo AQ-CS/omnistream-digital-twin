@@ -1,15 +1,7 @@
 import { forwardRef, useImperativeHandle, useRef } from 'react';
 
-// ─── Types ───────────────────────────────────────────────────
-
-export type TwinNodeState = 'nominal' | 'warning' | 'critical' | 'failure';
-
-export interface TwinNodeLimits {
-    min: number;
-    max: number;
-    warning: number;
-    critical: number;
-}
+import type { TwinNodeState, TwinNodeLimits } from '../types/telemetry';
+import { RPM_LIMITS, VIB_LIMITS, TEMP_LIMITS } from '../config/thresholds';
 
 export interface DigitalTwinSchematicHandle {
     updateBearingState: (state: TwinNodeState) => void;
@@ -26,10 +18,6 @@ const NODE_COLORS: Record<TwinNodeState, { bg: string; border: string; text: str
     critical: { bg: '#450a0a', border: '#ef4444', text: '#ef4444' },
     failure: { bg: '#7f1d1d', border: '#dc2626', text: '#fca5a5' },
 };
-
-const RPM_LIMITS: TwinNodeLimits = { min: 3400, max: 3900, warning: 3700, critical: 3800 };
-const VIB_LIMITS: TwinNodeLimits = { min: 0, max: 15, warning: 7.0, critical: 12.0 };
-const TEMP_LIMITS: TwinNodeLimits = { min: 860, max: 970, warning: 940, critical: 955 };
 
 // ─── Helpers ─────────────────────────────────────────────────
 
@@ -74,7 +62,7 @@ function BulletGraph({ label, unit, limits, refs }: {
             <div style={{
                 position: 'relative',
                 width: '100%',
-                height: '6px',
+                height: '12px',
                 background: '#1e293b',
                 borderRadius: '3px',
                 overflow: 'visible',
@@ -99,7 +87,7 @@ function BulletGraph({ label, unit, limits, refs }: {
                     left: `${warnPct}%`,
                     top: '-1px',
                     width: '1px',
-                    height: '8px',
+                    height: '14px',
                     background: '#f59e0b',
                     opacity: 0.6,
                 }} />
@@ -109,7 +97,7 @@ function BulletGraph({ label, unit, limits, refs }: {
                     left: `${critPct}%`,
                     top: '-1px',
                     width: '1px',
-                    height: '8px',
+                    height: '14px',
                     background: '#ef4444',
                     opacity: 0.6,
                 }} />
@@ -203,10 +191,10 @@ export const DigitalTwinSchematic = forwardRef<DigitalTwinSchematicHandle>(
                 <div style={{ padding: '24px 20px', flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: '20px' }}>
 
                     {/* Main Flow Diagram */}
-                    <div style={{ display: 'flex', alignItems: 'stretch', justifyContent: 'center', gap: '8px' }}>
+                    <div className="twin-flow-layout">
 
                         {/* Intake */}
-                        <div className="twin-node" style={{ width: '64px', borderRadius: '8px 0 0 8px', borderRight: 'none', justifyContent: 'center' }}>
+                        <div className="twin-node twin-node-intake">
                             <span className="twin-node-label">Intake</span>
                             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" style={{ color: '#475569' }}>
                                 <path d="M5 12h14M12 5l7 7-7 7" strokeLinecap="round" strokeLinejoin="round" />
@@ -214,7 +202,7 @@ export const DigitalTwinSchematic = forwardRef<DigitalTwinSchematicHandle>(
                         </div>
 
                         {/* Compressor */}
-                        <div className="twin-node" style={{ width: '150px', borderRadius: '0', borderRight: 'none', padding: '16px 14px' }}>
+                        <div className="twin-node twin-node-core">
                             <BulletGraph
                                 label="Compressor"
                                 unit="RPM"
@@ -226,8 +214,8 @@ export const DigitalTwinSchematic = forwardRef<DigitalTwinSchematicHandle>(
                         {/* Combustor */}
                         <div
                             ref={combustorNodeRef}
-                            className="twin-node"
-                            style={{ width: '150px', borderRadius: '0', borderRight: 'none', padding: '16px 14px', transition: 'border-color 0.5s ease, box-shadow 0.5s ease' }}
+                            className="twin-node twin-node-core"
+                            style={{ transition: 'border-color 0.5s ease, box-shadow 0.5s ease' }}
                         >
                             <BulletGraph
                                 label="Combustor"
@@ -240,12 +228,8 @@ export const DigitalTwinSchematic = forwardRef<DigitalTwinSchematicHandle>(
                         {/* Turbine / Bearing */}
                         <div
                             ref={bearingNodeRef}
-                            className="twin-node"
+                            className="twin-node twin-node-core"
                             style={{
-                                width: '150px',
-                                borderRadius: '0',
-                                borderRight: 'none',
-                                padding: '16px 14px',
                                 backgroundColor: NODE_COLORS.nominal.bg,
                                 borderColor: NODE_COLORS.nominal.border,
                             }}
@@ -266,7 +250,7 @@ export const DigitalTwinSchematic = forwardRef<DigitalTwinSchematicHandle>(
                         </div>
 
                         {/* Exhaust */}
-                        <div className="twin-node" style={{ width: '64px', borderRadius: '0 8px 8px 0', justifyContent: 'center' }}>
+                        <div className="twin-node twin-node-exhaust">
                             <span className="twin-node-label">Exhaust</span>
                             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" style={{ color: '#475569' }}>
                                 <path d="M5 12h14M12 5l7 7-7 7" strokeLinecap="round" strokeLinejoin="round" />
@@ -275,12 +259,12 @@ export const DigitalTwinSchematic = forwardRef<DigitalTwinSchematicHandle>(
                     </div>
 
                     {/* Shaft Line */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '0 4px' }}>
-                        <div style={{ flex: 1, height: '1px', background: 'linear-gradient(90deg, transparent, #334155)' }}></div>
-                        <span style={{ fontSize: '10px', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase' as const, color: '#64748b' }}>
+                    <div className="shaft-line-container">
+                        <div className="shaft-line-left"></div>
+                        <span style={{ fontSize: '10px', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#64748b' }}>
                             Drive Shaft
                         </span>
-                        <div style={{ flex: 1, height: '1px', background: 'linear-gradient(90deg, #334155, transparent)' }}></div>
+                        <div className="shaft-line-right"></div>
                     </div>
                 </div>
             </div>

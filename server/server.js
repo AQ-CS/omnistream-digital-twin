@@ -10,10 +10,12 @@ const fleet = [
     { id: 'T-03', t: 0, r: 0, v: 0, c: 0 }
 ];
 
-// Faults only apply to T-03
+// Active Target Faults
+let activeFaultTarget = null;
 let isFaultActive = false;
 let faultStartTime = 0;
 
+let activeThermalTarget = null;
 let isThermalRunaway = false;
 let thermalStartTime = 0;
 
@@ -51,18 +53,26 @@ wss.on('connection', (ws) => {
     ws.on('message', (msg) => {
         try {
             const data = JSON.parse(msg);
-            if (data.type === 'INJECT_FAULT' || data.type === 'inject_fault') {
+            const { type, targetId } = data;
+
+            if (type === 'INJECT_FAULT' || type === 'inject_fault') {
+                if (!targetId) return;
                 isFaultActive = true;
+                activeFaultTarget = targetId;
                 faultStartTime = Date.now();
-                console.log('[FAULT] Bearing fault injected on T-03');
-            } else if (data.type === 'THERMAL_RUNAWAY') {
+                console.log(`[FAULT] Bearing fault injected on ${activeFaultTarget}`);
+            } else if (type === 'THERMAL_RUNAWAY') {
+                if (!targetId) return;
                 isThermalRunaway = true;
+                activeThermalTarget = targetId;
                 thermalStartTime = Date.now();
-                console.log('[FAULT] Thermal runaway injected on T-03');
-            } else if (data.type === 'CLEAR_FAULT') {
+                console.log(`[FAULT] Thermal runaway injected on ${activeThermalTarget}`);
+            } else if (type === 'CLEAR_FAULT') {
                 isFaultActive = false;
+                activeFaultTarget = null;
                 faultStartTime = 0;
                 isThermalRunaway = false;
+                activeThermalTarget = null;
                 thermalStartTime = 0;
                 console.log('[FAULT] All faults cleared');
             }
@@ -96,24 +106,22 @@ function mutateFleet() {
         let vAmp = 1.5;
         let vNoise = 1.0;
 
-        // Fault logic applied ONLY to T-03
-        if (payload.id === 'T-03') {
-            if (isThermalRunaway) {
-                // Gradually raise from 900 → 960°C over 120 seconds
-                const elapsed = now - thermalStartTime;
-                const progress = Math.min(elapsed / 120000, 1.0); // 0→1 over 120s
-                cBase += 60 * progress; // +60°C at full progression
-                // Add increasing noise as thermal instability grows
-                cBase += (Math.random() - 0.5) * 3.0 * progress;
-            }
+        // Fault logic applied based on dynamic targets
+        if (isThermalRunaway && payload.id === activeThermalTarget) {
+            // Gradually raise from 900 → 960°C over 120 seconds
+            const elapsed = now - thermalStartTime;
+            const progress = Math.min(elapsed / 120000, 1.0); // 0→1 over 120s
+            cBase += 60 * progress; // +60°C at full progression
+            // Add increasing noise as thermal instability grows
+            cBase += (Math.random() - 0.5) * 3.0 * progress;
+        }
 
-            if (isFaultActive) {
-                // Bearing degradation over 60s
-                const elapsed = now - faultStartTime;
-                const progress = Math.min(elapsed / 60000, 1.0); // 0→1 over 60s
-                vAmp = 1.5 + (13.5 * progress);    // → 15.0
-                vNoise = 1.0 + (5.0 * progress);   // → 6.0
-            }
+        if (isFaultActive && payload.id === activeFaultTarget) {
+            // Bearing degradation over 60s
+            const elapsed = now - faultStartTime;
+            const progress = Math.min(elapsed / 60000, 1.0); // 0→1 over 60s
+            vAmp = 1.5 + (13.5 * progress);    // → 15.0
+            vNoise = 1.0 + (5.0 * progress);   // → 6.0
         }
 
         payload.c = cBase;
