@@ -57,7 +57,7 @@ I didn't just want this to look like a generic web app; I wanted it to look like
 ## 🚀 Running the Sandbox
 If you want to see the website in action:
 
-https://github.com/AQ-CS/omnistream-digital-twin
+https://omnistream-digital-twin.vercel.app/
 
 Want to inject a bearing fault and watch the math work?
 
