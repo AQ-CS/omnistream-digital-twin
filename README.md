@@ -30,6 +30,12 @@ If you try to shove 50 updates per second into React's `useState`, the Virtual D
 2. **The Predictive Maintenance Engine (`pdm.worker.ts`):** This is the brains. I moved all the heavy math into an isolated Web Worker. It uses memory-safe `Float64Array` circular buffers to run a rolling Exponential Moving Average (EMA) and a Least-Squares Linear Regression. 
 3. **The Rendering Layer (`App.tsx` & `uPlot`):** The React component intercepts the 50Hz data using `useRef` and imperatively mutates the HTML5 `<canvas>` elements and specific DOM nodes. React state is intentionally throttled to ~2Hz just to handle structural layout changes.
 
+### ⏱️ Why 50Hz? (The Physics & The Flex)
+Choosing 50Hz for the simulation wasn't an arbitrary number; it was a calculated architectural baseline:
+* **The Domain Reality:** 50Hz is the AC grid synchronization frequency for most Siemens turbines (3000 RPM). It is the physical heartbeat of the machine.
+* **The Browser Limit:** A standard browser renders at 60fps (16.6ms). Pushing data at 50Hz (20ms) pushes the browser to its absolute rendering limit. It proves that the decoupled Web Worker + Canvas architecture isn't just a gimmick—it is strictly necessary to prevent frame drops under heavy telemetry loads.
+* **The Control Loop:** Edge PLCs typically run safety logic loops in the 10-20ms range. This frequency perfectly mimics the real-time constraints of an industrial safety controller.
+
 ### 🔌 The "AI Injection Point"
 The math driving the Remaining Useful Life (RUL) countdown in this PoC is a simple linear regression. I know real turbine degradation is highly non-linear! However, I specifically built this Web Worker architecture to be an **injection point for a production AI model**. 
 
@@ -53,7 +59,10 @@ I didn't just want this to look like a generic web app; I wanted it to look like
 Want to inject a bearing fault and watch the math work?
 
 ```bash
-# Clone the repo and install dependencies
+# Clone the repo and go to client folder
+cd client
+
+# Install dependencies
 npm install
 
 # Start the Vite development server
