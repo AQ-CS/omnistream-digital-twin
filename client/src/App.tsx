@@ -114,32 +114,39 @@ function App() {
 
     if (currentPdM && selectedTurbine !== 'OVERVIEW') {
       const { estimatedRUL, temperatureStatus, smoothedTemperature, smoothedVibration } = currentPdM;
-      let ns: TwinNodeState = 'nominal';
 
       const isThermalCritical = temperatureStatus === 'critical';
       const isThermalWarning = temperatureStatus === 'warning';
       const isVibCritical = estimatedRUL <= 0 || estimatedRUL < RUL_LIMITS.critical || smoothedVibration >= VIB_LIMITS.critical;
       const isVibWarning = estimatedRUL < RUL_LIMITS.warning || smoothedVibration >= VIB_LIMITS.warning;
 
-      if (isThermalCritical || estimatedRUL <= 0) ns = 'failure';
-      else if (isVibCritical) ns = 'critical';
-      else if (isThermalWarning || isVibWarning) ns = 'warning';
+      // 1. ISOLATE BEARING STATE
+      let bearingState: TwinNodeState = 'nominal';
+      if (estimatedRUL <= 0) bearingState = 'failure';
+      else if (isVibCritical) bearingState = 'critical';
+      else if (isVibWarning) bearingState = 'warning';
 
-      console.log(`[UI] Setting initial schematic state to: ${ns} (RUL: ${estimatedRUL.toFixed(1)}, Temp Status: ${temperatureStatus})`);
-      schematicRef.current?.updateBearingState(ns);
+      console.log(`[UI] Setting initial schematic bearing state to: ${bearingState} (RUL: ${estimatedRUL.toFixed(1)})`);
+      schematicRef.current?.updateBearingState(bearingState);
 
-      if (ns !== 'nominal') {
+      // 2. ISOLATE GLOBAL STATE
+      let globalState: TwinNodeState = 'nominal';
+      if (isThermalCritical || estimatedRUL <= 0) globalState = 'failure';
+      else if (isVibCritical) globalState = 'critical';
+      else if (isThermalWarning || isVibWarning) globalState = 'warning';
+
+      if (globalState !== 'nominal') {
         if (warningRef.current) {
           warningRef.current.style.display = 'flex';
-          warningRef.current.style.background = ns === 'warning' ? '#2d2001' : 'var(--hmi-alarm-bg)';
-          warningRef.current.style.borderColor = ns === 'warning' ? 'rgba(245, 158, 11, 0.4)' : 'rgba(239, 68, 68, 0.4)';
-          warningRef.current.style.borderLeftColor = ns === 'warning' ? 'var(--hmi-alarm-warning)' : 'var(--hmi-alarm-critical)';
+          warningRef.current.style.background = globalState === 'warning' ? '#2d2001' : 'var(--hmi-alarm-bg)';
+          warningRef.current.style.borderColor = globalState === 'warning' ? 'rgba(245, 158, 11, 0.4)' : 'rgba(239, 68, 68, 0.4)';
+          warningRef.current.style.borderLeftColor = globalState === 'warning' ? 'var(--hmi-alarm-warning)' : 'var(--hmi-alarm-critical)';
         }
-        if (warningIconRef.current) warningIconRef.current.style.stroke = ns === 'warning' ? 'var(--hmi-alarm-warning)' : '#ef4444';
-        if (warningTitleRef.current) warningTitleRef.current.style.color = ns === 'warning' ? '#f1f5f9' : '#fca5a5';
-        if (warningDescRef.current) warningDescRef.current.style.color = ns === 'warning' ? '#fbbf24' : 'rgba(252, 165, 165, 0.8)';
-        if (warningMetricLabelRef.current) warningMetricLabelRef.current.style.color = ns === 'warning' ? 'rgba(245, 158, 11, 0.8)' : 'rgba(248, 113, 113, 0.8)';
-        if (rulTextRef.current) rulTextRef.current.style.color = ns === 'warning' ? 'var(--hmi-alarm-warning)' : '#fca5a5';
+        if (warningIconRef.current) warningIconRef.current.style.stroke = globalState === 'warning' ? 'var(--hmi-alarm-warning)' : '#ef4444';
+        if (warningTitleRef.current) warningTitleRef.current.style.color = globalState === 'warning' ? '#f1f5f9' : '#fca5a5';
+        if (warningDescRef.current) warningDescRef.current.style.color = globalState === 'warning' ? '#fbbf24' : 'rgba(252, 165, 165, 0.8)';
+        if (warningMetricLabelRef.current) warningMetricLabelRef.current.style.color = globalState === 'warning' ? 'rgba(245, 158, 11, 0.8)' : 'rgba(248, 113, 113, 0.8)';
+        if (rulTextRef.current) rulTextRef.current.style.color = globalState === 'warning' ? 'var(--hmi-alarm-warning)' : '#fca5a5';
 
         if (isThermalCritical) {
           if (warningTitleRef.current) warningTitleRef.current.innerText = `CRITICAL ALARM: Thermal Runaway on ${selectedTurbine}`;
@@ -202,33 +209,38 @@ function App() {
             const { estimatedRUL, temperatureStatus, smoothedTemperature, smoothedVibration } = activeState;
             currentEmaRef.current[activeTurbine] = smoothedVibration;
 
-            // Schematic bearing state
-            let ns: TwinNodeState = 'nominal';
-
             const isThermalCritical = temperatureStatus === 'critical';
             const isThermalWarning = temperatureStatus === 'warning';
             const isVibCritical = estimatedRUL <= 0 || estimatedRUL < RUL_LIMITS.critical || smoothedVibration >= VIB_LIMITS.critical;
             const isVibWarning = estimatedRUL < RUL_LIMITS.warning || smoothedVibration >= VIB_LIMITS.warning;
 
-            if (isThermalCritical || estimatedRUL <= 0) ns = 'failure';
-            else if (isVibCritical) ns = 'critical';
-            else if (isThermalWarning || isVibWarning) ns = 'warning';
+            // 1. ISOLATE BEARING STATE
+            let bearingState: TwinNodeState = 'nominal';
+            if (estimatedRUL <= 0) bearingState = 'failure';
+            else if (isVibCritical) bearingState = 'critical';
+            else if (isVibWarning) bearingState = 'warning';
 
-            schematicRef.current?.updateBearingState(ns);
+            schematicRef.current?.updateBearingState(bearingState);
+
+            // 2. ISOLATE GLOBAL STATE
+            let globalState: TwinNodeState = 'nominal';
+            if (isThermalCritical || estimatedRUL <= 0) globalState = 'failure';
+            else if (isVibCritical) globalState = 'critical';
+            else if (isThermalWarning || isVibWarning) globalState = 'warning';
 
             // Warning banner overlay
-            if (ns !== 'nominal') {
+            if (globalState !== 'nominal') {
               if (warningRef.current) {
                 warningRef.current.style.display = 'flex';
-                warningRef.current.style.background = ns === 'warning' ? '#2d2001' : 'var(--hmi-alarm-bg)';
-                warningRef.current.style.borderColor = ns === 'warning' ? 'rgba(245, 158, 11, 0.4)' : 'rgba(239, 68, 68, 0.4)';
-                warningRef.current.style.borderLeftColor = ns === 'warning' ? 'var(--hmi-alarm-warning)' : 'var(--hmi-alarm-critical)';
+                warningRef.current.style.background = globalState === 'warning' ? '#2d2001' : 'var(--hmi-alarm-bg)';
+                warningRef.current.style.borderColor = globalState === 'warning' ? 'rgba(245, 158, 11, 0.4)' : 'rgba(239, 68, 68, 0.4)';
+                warningRef.current.style.borderLeftColor = globalState === 'warning' ? 'var(--hmi-alarm-warning)' : 'var(--hmi-alarm-critical)';
               }
-              if (warningIconRef.current) warningIconRef.current.style.stroke = ns === 'warning' ? 'var(--hmi-alarm-warning)' : '#ef4444';
-              if (warningTitleRef.current) warningTitleRef.current.style.color = ns === 'warning' ? '#f1f5f9' : '#fca5a5';
-              if (warningDescRef.current) warningDescRef.current.style.color = ns === 'warning' ? '#fbbf24' : 'rgba(252, 165, 165, 0.8)';
-              if (warningMetricLabelRef.current) warningMetricLabelRef.current.style.color = ns === 'warning' ? 'rgba(245, 158, 11, 0.8)' : 'rgba(248, 113, 113, 0.8)';
-              if (rulTextRef.current) rulTextRef.current.style.color = ns === 'warning' ? 'var(--hmi-alarm-warning)' : '#fca5a5';
+              if (warningIconRef.current) warningIconRef.current.style.stroke = globalState === 'warning' ? 'var(--hmi-alarm-warning)' : '#ef4444';
+              if (warningTitleRef.current) warningTitleRef.current.style.color = globalState === 'warning' ? '#f1f5f9' : '#fca5a5';
+              if (warningDescRef.current) warningDescRef.current.style.color = globalState === 'warning' ? '#fbbf24' : 'rgba(252, 165, 165, 0.8)';
+              if (warningMetricLabelRef.current) warningMetricLabelRef.current.style.color = globalState === 'warning' ? 'rgba(245, 158, 11, 0.8)' : 'rgba(248, 113, 113, 0.8)';
+              if (rulTextRef.current) rulTextRef.current.style.color = globalState === 'warning' ? 'var(--hmi-alarm-warning)' : '#fca5a5';
 
               if (isThermalCritical) {
                 if (warningTitleRef.current) warningTitleRef.current.innerText = `CRITICAL ALARM: Thermal Runaway on ${activeTurbine}`;

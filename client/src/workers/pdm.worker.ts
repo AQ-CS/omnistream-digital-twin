@@ -169,7 +169,7 @@ self.onmessage = (e: MessageEvent<PdMWorkerInput>): void => {
                 smoothedRul = sorted[1];
             }
 
-            const tempEma = calculateEMA(temperature, state.lastTempEMA, 0.05);
+            const tempEma = calculateEMA(temperature, state.lastTempEMA, 0.5);
             state.lastTempEMA = tempEma;
 
             let tempStatus: 'nominal' | 'warning' | 'critical' = 'nominal';
