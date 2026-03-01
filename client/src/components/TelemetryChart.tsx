@@ -182,12 +182,12 @@ export const TelemetryChart = forwardRef<TelemetryChartHandle, TelemetryChartPro
                     <div style={{ marginLeft: 'auto', display: 'flex', gap: '12px', alignItems: 'center' }}>
                         {config.warningLimit !== undefined && (
                             <span style={{ fontSize: '9px', fontWeight: 600, color: '#f59e0b', letterSpacing: '0.05em' }}>
-                                WARN: {config.warningLimit}
+                                WARN Threshold: {config.warningLimit}
                             </span>
                         )}
                         {config.criticalLimit !== undefined && (
                             <span style={{ fontSize: '9px', fontWeight: 600, color: '#ef4444', letterSpacing: '0.05em' }}>
-                                CRIT: {config.criticalLimit}
+                                CRIT Threshold: {config.criticalLimit}
                             </span>
                         )}
                     </div>
