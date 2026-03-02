@@ -788,48 +788,96 @@ body {
   }
 }
 
-/* Mobile: ≤640px (phones) */
+/* ─── ULTIMATE PHONE VISIBILITY OVERRIDE (≤640px) ─── */
 @media (max-width: 640px) {
-  .hmi-header {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 16px;
+
+  /* 1. Unlock the main layout so the page can actually grow vertically */
+  .app-layout,
+  .main-content {
+    height: auto !important;
+    min-height: 100vh !important;
+    overflow: visible !important;
+    display: block !important;
   }
 
-  .hmi-header>div:nth-child(2) {
-    width: 100%;
-    flex-wrap: wrap;
+  /* 2. Ensure the scrollable area expands to fit all content */
+  .main-scroll {
+    overflow: visible !important;
+    height: auto !important;
+    padding: 16px !important;
+    padding-bottom: 80px !important;
+    /* Space for mobile browser UI */
+    display: block !important;
   }
 
-  /* Stack readouts vertically */
+  /* 3. Strip all height and clipping restrictions from the Panel */
+  .hmi-panel {
+    max-height: none !important;
+    height: auto !important;
+    overflow: visible !important;
+    display: block !important;
+    margin-bottom: 24px !important;
+  }
+
+  .hmi-panel-body {
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+    position: static !important;
+    /* Prevents clipping traps */
+    min-height: auto !important;
+  }
+
+  /* 4. Internal Data Density Management */
+  /* Targets the flex container holding Analog vs Discrete data */
+  .hmi-panel-body>div>div[style*="display: flex"] {
+    flex-direction: column !important;
+    gap: 20px !important;
+  }
+
+  /* Targets the 2-column Analog grid (VGV, Fuel, etc.) */
+  .hmi-panel-body div[style*="grid-template-columns"] {
+    grid-template-columns: 1fr !important;
+    gap: 10px !important;
+    width: 100% !important;
+  }
+
+  /* 5. Component Vertical Stacking */
   .readouts-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: 1fr !important;
   }
 
-  /* Stack schematic + diagnostics vertically */
   .schematic-diagnostics-col {
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 16px !important;
   }
 
   .schematic-diagnostics-col>* {
-    width: 100%;
+    width: 100% !important;
   }
 
-  .charts-stack {
-    width: 100%;
+  /* 6. Header & Navigation Adjustments */
+  .hmi-header {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 16px !important;
+  }
+
+  .hmi-header>div:nth-child(2) {
+    width: 100% !important;
+    flex-wrap: wrap !important;
   }
 
   .hmi-btn {
-    flex: 1 1 100%;
-    text-align: center;
+    flex: 1 1 100% !important;
+    text-align: center !important;
   }
 
   .warning-banner {
-    flex-direction: column;
-    align-items: flex-start;
-    text-align: left;
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    text-align: left !important;
   }
 
   .warning-banner>div:last-child {
