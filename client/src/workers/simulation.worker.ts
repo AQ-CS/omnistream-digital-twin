@@ -56,35 +56,30 @@ function mutateFleet() {
         const payload = fleet[i];
         payload.t = now;
 
-        // Distinct phase offset per turbine
         const phaseOffset = i * 1000;
 
-        // r (RPM): Base 3600 + low-frequency sine wave + slight noise
-        payload.r = 3600 + Math.sin((tick + phaseOffset) / 500) * 50 + (Math.random() - 0.5) * 5;
+        // r (RPM): SGT-800 Base 6600 RPM + slight mechanical noise
+        payload.r = 6600 + Math.sin((tick + phaseOffset) / 500) * 20 + (Math.random() - 0.5) * 5;
 
-        // c (Combustor Temperature): Nominal 900°C ± 10°C slow drift
-        let cBase = 900 + Math.sin((tick + phaseOffset) / 1000) * 10 + (Math.random() - 0.5) * 1.0;
+        // c (Exhaust Temperature): Nominal 596°C ± 2°C slow drift
+        let cBase = 596 + Math.sin((tick + phaseOffset) / 1000) * 2 + (Math.random() - 0.5) * 0.5;
 
-        // v (Vibration): Nominal ±1.5 mm/s amplitude
         let vAmp = 1.5;
         let vNoise = 1.0;
 
-        // Fault logic applied dynamically
         if (isThermalRunaway && payload.id === activeThermalTarget) {
-            // Gradually raise from 900 → 960°C over 120 seconds
+            // Gradually raise from 596 → 641°C over 120 seconds
             const elapsed = now - thermalStartTime;
-            const progress = Math.min(elapsed / 120000, 1.0); // 0→1 over 120s
-            cBase += 60 * progress; // +60°C at full progression
-            // Add increasing noise as thermal instability grows
+            const progress = Math.min(elapsed / 120000, 1.0);
+            cBase += 45 * progress; // +45°C at full progression
             cBase += (Math.random() - 0.5) * 3.0 * progress;
         }
 
         if (isFaultActive && payload.id === activeFaultTarget) {
-            // Bearing degradation over 60s
             const elapsed = now - faultStartTime;
-            const progress = Math.min(elapsed / 60000, 1.0); // 0→1 over 60s
-            vAmp = 1.5 + (13.5 * progress);    // → 15.0
-            vNoise = 1.0 + (5.0 * progress);   // → 6.0
+            const progress = Math.min(elapsed / 60000, 1.0);
+            vAmp = 1.5 + (13.5 * progress);
+            vNoise = 1.0 + (5.0 * progress);
         }
 
         payload.c = cBase;

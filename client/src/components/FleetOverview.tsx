@@ -122,7 +122,7 @@ export function FleetOverview({ fleetState, fleetTelemetry, onDrillDown, connSta
 
                             <div className="hmi-panel-body" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-                                    <span style={{ fontSize: '12px', color: 'var(--hmi-text-muted)', fontWeight: 600 }}>Rotor Speed</span>
+                                    <span style={{ fontSize: '12px', color: 'var(--hmi-text-muted)', fontWeight: 600 }}>Turbine Speed</span>
                                     <div className="tabular-data">
                                         <span style={{ fontSize: '20px', fontWeight: 700, color: 'var(--hmi-text-primary)' }}>
                                             {tele ? tele.r.toFixed(0) : '---'}
@@ -132,7 +132,7 @@ export function FleetOverview({ fleetState, fleetTelemetry, onDrillDown, connSta
                                 </div>
 
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-                                    <span style={{ fontSize: '12px', color: 'var(--hmi-text-muted)', fontWeight: 600 }}>Combustor</span>
+                                    <span style={{ fontSize: '12px', color: 'var(--hmi-text-muted)', fontWeight: 600 }}>Exhaust</span>
                                     <div className="tabular-data">
                                         <span style={{ fontSize: '20px', fontWeight: 700, color: 'var(--hmi-text-primary)' }}>
                                             {tele ? tele.c.toFixed(1) : '---'}

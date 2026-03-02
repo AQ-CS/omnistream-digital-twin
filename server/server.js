@@ -99,7 +99,7 @@ function mutateFleet() {
         // r (RPM): Base 3600 + low-frequency sine wave + slight noise
         payload.r = 3600 + Math.sin((tick + phaseOffset) / 500) * 50 + (Math.random() - 0.5) * 5;
 
-        // c (Combustor Temperature): Nominal 900°C ± 10°C slow drift
+        // c (Exhaust Temperature): Nominal 900°C ± 10°C slow drift
         let cBase = 900 + Math.sin((tick + phaseOffset) / 1000) * 10 + (Math.random() - 0.5) * 1.0;
 
         // v (Vibration): Nominal ±1.5 mm/s amplitude
@@ -144,6 +144,6 @@ const PORT = process.env.PORT || 8080;
 server.listen(PORT, () => {
     console.log(`[🚀] Gas Turbine Simulator on port ${PORT} @ 50Hz`);
     console.log(`[⚙️] Fleet: T-01, T-02, T-03 (Multiplexed)`);
-    console.log(`[⚙️] Baselines: RPM ~3600, Vibration ~1.5 mm/s, Combustor ~900°C`);
+    console.log(`[⚙️] Baselines: RPM ~3600, Vibration ~1.5 mm/s, Exhaust ~900°C`);
     console.log(`[🔌] Faults: INJECT_FAULT | THERMAL_RUNAWAY | CLEAR_FAULT (Targets T-03 only)`);
 });

@@ -27,14 +27,12 @@ export function DiagnosticsPanel({ turbineId, payload, pdmState, connStatus }: D
         }
     }
 
-    // Solid opaque backgrounds — no transparency bleeding
     const panelBg = alarmLevel === 'critical' ? '#2a0a0a'
         : alarmLevel === 'warning' ? '#2d2001'
             : 'var(--hmi-bg-card)';
 
     const isStale = connStatus === 'STALE' || connStatus === 'DISCONNECTED';
 
-    // Alarm class for physical cue (clip-path / outline)
     const alarmClass = alarmLevel === 'critical'
         ? 'hmi-alarm-critical-status'
         : alarmLevel === 'warning'
@@ -48,14 +46,15 @@ export function DiagnosticsPanel({ turbineId, payload, pdmState, connStatus }: D
             flexDirection: 'column',
             boxSizing: 'border-box',
             backgroundColor: panelBg,
-            transition: 'all 0.3s'
+            transition: 'all 0.3s',
+            maxHeight: '320px'
         }}>
             <div className="hmi-panel-header" style={{ borderBottomColor: statusColor }}>
                 <span className="hmi-panel-title">Active Diagnostics</span>
-                <span className="tabular-data" style={{ fontSize: '11px', color: 'var(--hmi-text-dim)' }}>{turbineId} STATUS LOG</span>
+                <span className="tabular-data" style={{ fontSize: '11px', color: 'var(--hmi-text-dim)' }}>{turbineId} P&ID LOG</span>
             </div>
 
-            <div className="hmi-panel-body" style={{ flex: 1, position: 'relative', minHeight: '120px' }}>
+            <div className="hmi-panel-body" style={{ flex: 1, overflowY: 'auto', paddingRight: '8px' }}>
                 {!payload || !pdmState ? (
                     <div style={{ color: 'var(--hmi-text-dim)', fontSize: '12px' }}>Awaiting telemetry...</div>
                 ) : (
@@ -64,94 +63,132 @@ export function DiagnosticsPanel({ turbineId, payload, pdmState, connStatus }: D
                         flexDirection: 'column',
                         gap: '8px'
                     }}>
-                        {/* Dynamic Row */}
-                        {!pdmState ? null : (
-                            <>
-                                {pdmState.temperatureStatus !== 'nominal' && (
-                                    <div style={{
-                                        background: pdmState.temperatureStatus === 'critical' ? '#2a0a0a' : '#2d2001',
-                                        borderLeft: `3px solid ${pdmState.temperatureStatus === 'critical' ? 'var(--hmi-alarm-critical)' : 'var(--hmi-alarm-warning)'}`,
-                                        padding: '12px 16px',
-                                        borderRadius: '4px',
-                                        display: 'flex',
-                                        alignItems: 'flex-start',
-                                        gap: '12px'
-                                    }}>
-                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={pdmState.temperatureStatus === 'critical' ? 'var(--hmi-alarm-critical)' : 'var(--hmi-alarm-warning)'} strokeWidth="2" style={{ marginTop: '2px' }} className="fault-pulse">
-                                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                                        </svg>
-                                        <div>
-                                            <div style={{ color: '#f1f5f9', fontWeight: 600, fontSize: '13px' }}>
-                                                THERMAL RUNAWAY: Sustained high combustor temp
-                                            </div>
-                                            <div style={{ color: pdmState.temperatureStatus === 'critical' ? '#fca5a5' : '#fbbf24', opacity: 0.8, fontSize: '12px', marginTop: '2px' }}>
-                                                Temp: {pdmState.smoothedTemperature.toFixed(1)}°C. Recommend immediate action.
-                                            </div>
-                                        </div>
+                        {/* Dynamic Fault Rows */}
+                        {pdmState.temperatureStatus !== 'nominal' && (
+                            <div style={{
+                                background: pdmState.temperatureStatus === 'critical' ? '#2a0a0a' : '#2d2001',
+                                borderLeft: `3px solid ${pdmState.temperatureStatus === 'critical' ? 'var(--hmi-alarm-critical)' : 'var(--hmi-alarm-warning)'}`,
+                                padding: '12px 16px',
+                                borderRadius: '4px',
+                                display: 'flex',
+                                alignItems: 'flex-start',
+                                gap: '12px'
+                            }}>
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={pdmState.temperatureStatus === 'critical' ? 'var(--hmi-alarm-critical)' : 'var(--hmi-alarm-warning)'} strokeWidth="2" style={{ marginTop: '2px' }} className="fault-pulse">
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                                </svg>
+                                <div>
+                                    <div style={{ color: '#f1f5f9', fontWeight: 600, fontSize: '13px' }}>
+                                        THERMAL RUNAWAY: Sustained high combustor temp
                                     </div>
-                                )}
-
-                                {(pdmState.estimatedRUL < RUL_LIMITS.warning || pdmState.smoothedVibration >= VIB_LIMITS.warning) && (
-                                    <div style={{
-                                        background: (pdmState.estimatedRUL < RUL_LIMITS.critical || pdmState.smoothedVibration >= VIB_LIMITS.critical) ? '#2a0a0a' : '#2d2001',
-                                        borderLeft: `3px solid ${(pdmState.estimatedRUL < RUL_LIMITS.critical || pdmState.smoothedVibration >= VIB_LIMITS.critical) ? 'var(--hmi-alarm-critical)' : 'var(--hmi-alarm-warning)'}`,
-                                        padding: '12px 16px',
-                                        borderRadius: '4px',
-                                        display: 'flex',
-                                        alignItems: 'flex-start',
-                                        gap: '12px'
-                                    }}>
-                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={(pdmState.estimatedRUL < RUL_LIMITS.critical || pdmState.smoothedVibration >= VIB_LIMITS.critical) ? 'var(--hmi-alarm-critical)' : 'var(--hmi-alarm-warning)'} strokeWidth="2" style={{ marginTop: '2px' }} className="fault-pulse">
-                                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                                        </svg>
-                                        <div>
-                                            <div style={{ color: '#f1f5f9', fontWeight: 600, fontSize: '13px' }}>
-                                                BEARING FAULT: Degradation / High Vibration Detected
-                                            </div>
-                                            <div style={{ color: (pdmState.estimatedRUL < RUL_LIMITS.critical || pdmState.smoothedVibration >= VIB_LIMITS.critical) ? '#fca5a5' : '#94a3b8', opacity: 0.8, fontSize: '12px', marginTop: '2px' }}>
-                                                {pdmState.estimatedRUL < RUL_LIMITS.warning
-                                                    ? `RUL < ${RUL_LIMITS.warning}s. Recommend step-down protocol immediately.`
-                                                    : `Vibration at ${pdmState.smoothedVibration.toFixed(2)} mm/s exceeds safety limits.`
-                                                }
-                                            </div>
-                                        </div>
+                                    <div style={{ color: pdmState.temperatureStatus === 'critical' ? '#fca5a5' : '#fbbf24', opacity: 0.8, fontSize: '12px', marginTop: '2px' }}>
+                                        Temp: {pdmState.smoothedTemperature.toFixed(1)}°C. Recommend immediate action.
                                     </div>
-                                )}
-
-                                {pdmState.temperatureStatus === 'nominal' && pdmState.estimatedRUL >= RUL_LIMITS.warning && pdmState.smoothedVibration < VIB_LIMITS.warning && (
-                                    <div style={{
-                                        background: 'rgba(16, 185, 129, 0.05)',
-                                        borderLeft: '3px solid #10b981',
-                                        padding: '12px 16px',
-                                        borderRadius: '4px',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        gap: '12px'
-                                    }}>
-                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2">
-                                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                                        </svg>
-                                        <div style={{ color: '#6ee7b7', fontWeight: 500, fontSize: '13px' }}>
-                                            All systems nominal.
-                                        </div>
-                                    </div>
-                                )}
-                            </>
+                                </div>
+                            </div>
                         )}
 
-                        {/* Static Nominal Rows (Context) */}
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 16px', color: alarmLevel === 'nominal' ? 'var(--hmi-text-muted)' : 'rgba(255, 255, 255, 0.9)', fontSize: '12px' }}>
-                            <div style={{ width: '4px', height: '4px', borderRadius: '50%', background: alarmLevel === 'nominal' ? 'var(--hmi-text-dim)' : 'rgba(255, 255, 255, 0.9)' }}></div>
-                            Combustor thermal distribution symmetric
+                        {(pdmState.estimatedRUL < RUL_LIMITS.warning || pdmState.smoothedVibration >= VIB_LIMITS.warning) && (
+                            <div style={{
+                                background: (pdmState.estimatedRUL < RUL_LIMITS.critical || pdmState.smoothedVibration >= VIB_LIMITS.critical) ? '#2a0a0a' : '#2d2001',
+                                borderLeft: `3px solid ${(pdmState.estimatedRUL < RUL_LIMITS.critical || pdmState.smoothedVibration >= VIB_LIMITS.critical) ? 'var(--hmi-alarm-critical)' : 'var(--hmi-alarm-warning)'}`,
+                                padding: '12px 16px',
+                                borderRadius: '4px',
+                                display: 'flex',
+                                alignItems: 'flex-start',
+                                gap: '12px'
+                            }}>
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={(pdmState.estimatedRUL < RUL_LIMITS.critical || pdmState.smoothedVibration >= VIB_LIMITS.critical) ? 'var(--hmi-alarm-critical)' : 'var(--hmi-alarm-warning)'} strokeWidth="2" style={{ marginTop: '2px' }} className="fault-pulse">
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                                </svg>
+                                <div>
+                                    <div style={{ color: '#f1f5f9', fontWeight: 600, fontSize: '13px' }}>
+                                        BEARING FAULT: Degradation / High Vibration Detected
+                                    </div>
+                                    <div style={{ color: (pdmState.estimatedRUL < RUL_LIMITS.critical || pdmState.smoothedVibration >= VIB_LIMITS.critical) ? '#fca5a5' : '#94a3b8', opacity: 0.8, fontSize: '12px', marginTop: '2px' }}>
+                                        {pdmState.estimatedRUL < RUL_LIMITS.warning
+                                            ? `RUL < ${RUL_LIMITS.warning}s. Step-down protocol recommended.`
+                                            : `Vibration at ${pdmState.smoothedVibration.toFixed(2)} mm/s exceeds safety limits.`
+                                        }
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* ISA-101 Compliant Flat Gray Nominal Status */}
+                        {pdmState.temperatureStatus === 'nominal' && pdmState.estimatedRUL >= RUL_LIMITS.warning && pdmState.smoothedVibration < VIB_LIMITS.warning && (
+                            <div style={{
+                                background: 'var(--hmi-bg-deep)',
+                                borderLeft: '3px solid #475569',
+                                padding: '12px 16px',
+                                borderRadius: '4px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '12px'
+                            }}>
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2">
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                                </svg>
+                                <div style={{ color: '#cbd5e1', fontWeight: 500, fontSize: '13px' }}>
+                                    Primary Control Systems Nominal
+                                </div>
+                            </div>
+                        )}
+
+                        {/* ISA-101 Dense Telemetry & Interlock Matrix */}
+                        <div style={{ display: 'flex', gap: '16px', marginTop: '8px' }}>
+
+                            {/* Left Column: Analog Readouts */}
+                            <div style={{
+                                flex: 1,
+                                display: 'grid',
+                                gridTemplateColumns: '1fr 1fr',
+                                gap: '8px',
+                                padding: '12px',
+                                background: alarmLevel === 'nominal' ? 'var(--hmi-bg-deep)' : 'rgba(0,0,0,0.2)',
+                                border: alarmLevel === 'nominal' ? '1px solid var(--hmi-border)' : '1px solid transparent',
+                                borderRadius: '4px',
+                                color: alarmLevel === 'nominal' ? '#cbd5e1' : 'rgba(255,255,255,0.8)',
+                                fontSize: '11px',
+                                fontFamily: 'monospace'
+                            }}>
+                                <div><span style={{ color: 'var(--hmi-text-dim)' }}>VGV POS:</span> {pdmState.temperatureStatus === 'nominal' ? '12.4°' : '8.1°'}</div>
+                                <div><span style={{ color: 'var(--hmi-text-dim)' }}>LUBE °C:</span> 45.2</div>
+                                <div><span style={{ color: 'var(--hmi-text-dim)' }}>PLT FLW:</span> 2.14 kg/s</div>
+                                <div><span style={{ color: 'var(--hmi-text-dim)' }}>MN FLW:</span> 14.50 kg/s</div>
+                                <div><span style={{ color: 'var(--hmi-text-dim)' }}>SEAL PR:</span> 1.22 bar</div>
+                                <div><span style={{ color: 'var(--hmi-text-dim)' }}>BRG OIL:</span> 3.4 bar</div>
+                            </div>
+
+                            {/* Right Column: Discrete Interlocks */}
+                            <div style={{
+                                flex: 1,
+                                display: 'flex',
+                                flexDirection: 'column',
+                                gap: '4px',
+                                fontSize: '10px',
+                                fontFamily: 'monospace',
+                                fontWeight: 600
+                            }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', background: '#0f172a', padding: '4px 8px', borderLeft: alarmLevel === 'critical' ? '2px solid #ef4444' : '2px solid #10b981' }}>
+                                    <span style={{ color: '#94a3b8' }}>OVERSPEED TRIP</span>
+                                    <span style={{ color: alarmLevel === 'critical' ? '#ef4444' : '#10b981' }}>{alarmLevel === 'critical' ? 'TRIPPED' : 'OK'}</span>
+                                </div>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', background: '#0f172a', padding: '4px 8px', borderLeft: pdmState.temperatureStatus !== 'nominal' ? '2px solid #f59e0b' : '2px solid #10b981' }}>
+                                    <span style={{ color: '#94a3b8' }}>FLAME SCANNERS</span>
+                                    <span style={{ color: pdmState.temperatureStatus !== 'nominal' ? '#f59e0b' : '#10b981' }}>{pdmState.temperatureStatus !== 'nominal' ? 'WARN' : 'ACTIVE'}</span>
+                                </div>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', background: '#0f172a', padding: '4px 8px', borderLeft: '2px solid #10b981' }}>
+                                    <span style={{ color: '#94a3b8' }}>EMERGENCY STOP</span>
+                                    <span style={{ color: '#10b972ff' }}>ARMED</span>
+                                </div>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', background: '#0f172a', padding: '4px 8px', borderLeft: '2px solid #10b981' }}>
+                                    <span style={{ color: '#94a3b8' }}>GRID SYNCH</span>
+                                    <span style={{ color: '#10b981' }}>LOCKED</span>
+                                </div>
+                            </div>
                         </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 16px', color: alarmLevel === 'nominal' ? 'var(--hmi-text-muted)' : 'rgba(255, 255, 255, 0.9)', fontSize: '12px' }}>
-                            <div style={{ width: '4px', height: '4px', borderRadius: '50%', background: alarmLevel === 'nominal' ? 'var(--hmi-text-dim)' : 'rgba(255, 255, 255, 0.9)' }}></div>
-                            Lube oil pressure stable at 45 PSI
-                        </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 16px', color: alarmLevel === 'nominal' ? 'var(--hmi-text-muted)' : 'rgba(255, 255, 255, 0.9)', fontSize: '12px' }}>
-                            <div style={{ width: '4px', height: '4px', borderRadius: '50%', background: alarmLevel === 'nominal' ? 'var(--hmi-text-dim)' : 'rgba(255, 255, 255, 0.9)' }}></div>
-                            Cooling air intake filters functioning normally
-                        </div>
+
                     </div>
                 )}
             </div>
