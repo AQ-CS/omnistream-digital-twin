@@ -71,12 +71,6 @@ export const DigitalTwinSchematic = forwardRef<DigitalTwinSchematicHandle>((_, r
                 </defs>
 
                 {/* ========================================== */}
-                {/* OFFSET SHAFTS & GEARBOX (Lowest Z)         */}
-                {/* ========================================== */}
-
-                <line x1="240" y1="220" x2="860" y2="220" stroke="#94a3b8" strokeWidth="6" strokeDasharray="20 10" style={{ animation: `spin-dash ${shaftDuration} linear infinite` }} />
-
-                {/* ========================================== */}
                 {/* 1. EXHAUST & BRG 2 (Right-most)            */}
                 {/* ========================================== */}
                 <g className="section exhaust">
@@ -143,6 +137,9 @@ export const DigitalTwinSchematic = forwardRef<DigitalTwinSchematicHandle>((_, r
                 {/* ========================================== */}
                 {/* 6. GEARBOX                                 */}
                 {/* ========================================== */}
+
+                <line x1="240" y1="220" x2="505" y2="220" stroke="#94a3b8" strokeWidth="6" strokeDasharray="20 10" style={{ animation: `spin-dash ${shaftDuration} linear infinite` }} />
+
                 <g className="section gearbox">
                     <rect x="200" y="140" width="40" height="120" rx="4" fill="#334155" stroke="#475569" strokeWidth="2" />
                     <text x="220" y="130" fill="#94a3b8" fontSize="10" fontWeight="bold" textAnchor="middle">GEAR</text>

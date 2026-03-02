@@ -54,7 +54,7 @@ To ensure the telemetry and schematic architecture were grounded in reality, thi
 
 * **Siemens Energy SGT-800 Technical Overview:** [Official Product Page](https://www.siemens-energy.com/global/en/home/products-services/product/sgt-800.html#/)
 * **Control Room Interface & Operator HMI Reference (WinCC / PCS 7):** [DIVA Academic Archive (PDF)](https://www.diva-portal.org/smash/get/diva2:1467470/FULLTEXT01.pdf)
-
+* **ISA-101 High-Performance HMI Design:** [Graham Nasby SCADA Standards (PDF)](https://www.grahamnasby.com/files_publications/NasbyG_2017_HighPerformanceHMIs_IntelligentWastewaterSeminar_WEAO_sept14-2017_slides-public.pdf)
 ---
 
 ## 🚀 Running the Sandbox
