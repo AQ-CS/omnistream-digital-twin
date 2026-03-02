@@ -99,7 +99,7 @@ export const DigitalTwinSchematic = forwardRef<DigitalTwinSchematicHandle>((_, r
                     <ellipse cx="610" cy="220" rx="10" ry="45" fill={getBearingDarkCap()} stroke="#0f172a" strokeWidth="2" style={{ transition: 'fill 0.5s ease' }} />
 
                     <path d="M 740,130 A 25 90 0 0 0 740,310" stroke="#94a3b8" strokeWidth="1.5" strokeDasharray="4 4" fill="none" opacity="0.6" />
-                    <path d="M 610,130 L 740,130 A 25 90 0 0 1 740,310 L 610,310 Z" fill="rgba(100, 116, 139, 0.1)" stroke="#94a3b8" strokeWidth="2" />
+                    <path d="M 610,130 L 740,130 A 25 90 0 0 1 740,310 L 610,310 Z" fill="rgba(209, 228, 255, 0.19)" stroke="#94a3b8" strokeWidth="2" />
                     <ellipse cx="610" cy="220" rx="25" ry="90" fill="rgba(15, 23, 42, 0.5)" stroke="#94a3b8" strokeWidth="2" />
                     <text x="675" y="360" fill="#94a3b8" fontSize="12" fontWeight="600" textAnchor="middle">TURBINE CASING</text>
                 </g>
